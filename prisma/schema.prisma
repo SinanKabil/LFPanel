@@ -1,0 +1,141 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+model Admin {
+  id        String   @id @default(cuid())
+  username  String   @unique
+  password  String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Product {
+  id        String   @id @default(cuid())
+  name      String
+  costUSD   Float    @default(0)
+  imgUrl    String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  sales     Sale[]
+}
+
+model Sale {
+  id             String   @id @default(cuid())
+  store          Store
+  type           SaleType
+  productId      String
+  product        Product  @relation(fields: [productId], references: [id])
+  quantity       Int
+  date           DateTime
+  orderNo        String
+  buyerPaid      Float // USD
+  feesCredits    Float // USD
+  totalSalePriceTL Float
+  productCost    Float // USD
+  shippingCost   Float // USD
+  profitUSD      Float
+  profitTL       Float
+  discountRate   Int?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+}
+
+enum Store {
+  RADIANT_JEWELRY_GIFT
+  THE_TRENDY_OUTFITTERS
+  LAMIAFERIS
+}
+
+enum SaleType {
+  ORGANIC
+  GIVEAWAY
+  SALE
+}
+
+model Expense {
+  id          String   @id @default(cuid())
+  date        DateTime
+  category    String
+  store       Store
+  amountTL    Float?
+  amountUSD   Float?
+  exchangeRate Float?
+  description String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model Message {
+  id        String   @id @default(cuid())
+  text      String
+  sender    String?
+  isRead    Boolean  @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model ExpenseCategory {
+  id        String   @id @default(cuid())
+  name      String   @unique
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model AppConfig {
+  id    String @id @default(cuid())
+  key   String @unique
+  value String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model LamiaStore {
+  id               String           @id @default(cuid())
+  name             String           @unique
+  transactions     PosTransaction[]
+  cashTransactions CashTransaction[]
+  createdAt        DateTime         @default(now())
+  updatedAt        DateTime         @updatedAt
+}
+
+model CommissionRate {
+  id        String           @id @default(cuid())
+  rate      Float
+  label     String
+  transactions PosTransaction[]
+  createdAt DateTime         @default(now())
+  updatedAt DateTime         @updatedAt
+}
+
+model PosTransaction {
+  id                    String         @id @default(cuid())
+  date                  DateTime
+  storeId               String
+  store                 LamiaStore     @relation(fields: [storeId], references: [id])
+  amount                Float
+  commissionRateId      String
+  commissionRate        CommissionRate @relation(fields: [commissionRateId], references: [id])
+  commissionRateSnapshot Float 
+  net                   Float
+  note                  String?
+  createdAt             DateTime       @default(now())
+  updatedAt             DateTime       @updatedAt
+}
+
+model CashTransaction {
+  id          String     @id @default(cuid())
+  date        DateTime
+  amount      Float
+  note        String?
+  storeId     String
+  store       LamiaStore @relation(fields: [storeId], references: [id])
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+}
