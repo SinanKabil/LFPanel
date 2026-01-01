@@ -10,7 +10,7 @@ export default async function SettingsPage({ params }: { params: Promise<{ brand
     return (
         <div>
             <h1 className="text-2xl font-bold tracking-tight text-slate-900">Ayarlar</h1>
-            <p className="text-xs text-slate-400">v1.2 (Live Check)</p>
+
             <SettingsView products={products} brand={brand} />
         </div>
     )
