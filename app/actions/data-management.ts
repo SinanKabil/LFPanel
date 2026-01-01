@@ -102,7 +102,7 @@ export async function getSampleExcel(type: "pos" | "cash" | "expense" | "etsy_sa
         if (type === "pos") {
             data = [{ Tarih: "2024-01-01", Mağaza: "Mağaza Adı", Tutar: 1000, Komisyon_Oranı: 3.5, Not: "Opsiyonel" }]
         } else if (type === "cash") {
-            data = [{ Tarih: "2024-01-01", Tutar: 500, Açıklama: "Satış Açıklaması" }]
+            data = [{ Tarih: "2024-01-01", Mağaza: "Mağaza Adı", Tutar: 500, Açıklama: "Satış Açıklaması" }]
         } else if (type === "expense") {
             data = [{ Tarih: "2024-01-01", Kategori: "Kargo", Tutar_TL: 150, Açıklama: "Gider Açıklaması" }]
         } else if (type === "etsy_sales") {
@@ -144,7 +144,41 @@ export async function importData(formData: FormData, type: "pos" | "cash" | "exp
 
         let count = 0
 
-        if (type === "pos") {
+        if (type === "cash") {
+            const stores = await prisma.lamiaStore.findMany()
+            const storeMap = new Map(stores.map(s => [s.name.trim().toLowerCase(), s.id]))
+
+            const transactionsToCreate = []
+
+            for (const row of jsonData as any[]) {
+                const dateStr = row["Tarih"]
+                const storeName = row["Mağaza"]
+                const amount = parseFloat(row["Tutar"])
+                const note = row["Açıklama"]
+
+                if (!dateStr || !storeName || isNaN(amount)) continue
+
+                // Resolve Store
+                let storeId = storeMap.get(storeName.trim().toLowerCase())
+                if (!storeId) {
+                    const newStore = await prisma.lamiaStore.create({ data: { name: storeName.trim() } })
+                    storeId = newStore.id
+                    storeMap.set(newStore.name.toLowerCase(), newStore.id)
+                }
+
+                transactionsToCreate.push({
+                    date: new Date(dateStr),
+                    storeId,
+                    amount,
+                    note: note ? String(note) : null
+                })
+            }
+
+            if (transactionsToCreate.length > 0) {
+                await prisma.cashTransaction.createMany({ data: transactionsToCreate })
+                count = transactionsToCreate.length
+            }
+        } else if (type === "pos") {
             const stores = await prisma.lamiaStore.findMany()
             const storeMap = new Map(stores.map(s => [s.name.trim().toLowerCase(), s.id]))
 
