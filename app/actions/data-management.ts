@@ -99,7 +99,7 @@ export async function getSampleExcel(type: "pos" | "cash" | "expense" | "etsy_sa
     try {
         let data: any[] = []
         if (type === "pos") {
-            data = [{ Tarih: "2024-01-01", Mağaza: "Mağaza Adı", Tutar: 1000, Komisyon_Oranı: 3.5, Net_Tutar: 965, Not: "Opsiyonel" }]
+            data = [{ Tarih: "2024-01-01", Mağaza: "Mağaza Adı", Tutar: 1000, Komisyon_Oranı: 3.5, Not: "Opsiyonel" }]
         } else if (type === "cash") {
             data = [{ Tarih: "2024-01-01", Tutar: 500, Açıklama: "Satış Açıklaması" }]
         } else if (type === "expense") {
@@ -147,23 +147,66 @@ export async function importData(formData: FormData, type: "pos" | "cash" | "exp
             const stores = await prisma.lamiaStore.findMany()
             const storeMap = new Map(stores.map(s => [s.name.trim().toLowerCase(), s.id]))
 
-            // Should also resolve Commission rate.. for now simplifying
+            // Fetch existing commission rates
+            const rates = await prisma.commissionRate.findMany()
+            // Map rate value (e.g. 3.5) to ID
+            const rateMap = new Map(rates.map(r => [r.rate, r.id]))
 
-            const validRows = []
+            const transactionsToCreate = []
+
             for (const row of jsonData as any[]) {
                 const dateStr = row["Tarih"]
                 const storeName = row["Mağaza"]
                 const amount = parseFloat(row["Tutar"])
-                // ...
-                if (!dateStr || !storeName) continue
+                const rateVal = parseFloat(row["Komisyon_Oranı"])
+                const note = row["Not"]
 
+                if (!dateStr || !storeName || isNaN(amount) || isNaN(rateVal)) continue
+
+                // 1. Resolve Store
                 let storeId = storeMap.get(storeName.trim().toLowerCase())
-                // ... if store missing create ... 
-                // Assuming existing logic from previous turn or refined:
-                // WARNING: Context had partial implementation. I will assume it's mostly placeholder or needs robust logic.
-                // For now, I will focus on implementing Etsy below which is the REQUEST.
+                if (!storeId) {
+                    // Option: Create store if missing, or skip? 
+                    // For safety, let's create it to ensure data import succeeds
+                    const newStore = await prisma.lamiaStore.create({ data: { name: storeName.trim() } })
+                    storeId = newStore.id
+                    storeMap.set(newStore.name.toLowerCase(), newStore.id)
+                }
+
+                // 2. Resolve Commission Rate
+                let commissionRateId = rateMap.get(rateVal)
+                if (!commissionRateId) {
+                    // Create new rate if not found
+                    const newRate = await prisma.commissionRate.create({
+                        data: {
+                            rate: rateVal,
+                            label: `%${rateVal} (Import)`
+                        }
+                    })
+                    commissionRateId = newRate.id
+                    rateMap.set(rateVal, newRate.id)
+                }
+
+                // 3. Calculate Net
+                // Net = Amount - (Amount * Rate / 100)
+                const commissionAmount = amount * (rateVal / 100)
+                const net = amount - commissionAmount
+
+                transactionsToCreate.push({
+                    date: new Date(dateStr),
+                    storeId,
+                    amount,
+                    commissionRateId,
+                    commissionRateSnapshot: rateVal,
+                    net,
+                    note: note ? String(note) : null
+                })
             }
-            // ...
+
+            if (transactionsToCreate.length > 0) {
+                await prisma.posTransaction.createMany({ data: transactionsToCreate })
+                count = transactionsToCreate.length
+            }
         } else if (type === "etsy_sales") {
             const products = await prisma.product.findMany()
             const productMap = new Map(products.map(p => [p.name.trim().toLowerCase(), p.id])) // Match by Name
