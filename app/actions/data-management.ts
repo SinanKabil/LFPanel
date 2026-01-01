@@ -27,7 +27,7 @@ export async function exportData(type: "pos" | "cash" | "expense" | "etsy_sales"
             data = transactions.map(t => ({
                 Tarih: t.date,
                 Tutar: t.amount,
-                Açıklama: t.description
+                Açıklama: t.note
             }))
         } else if (type === "expense") {
             // Filter by brand logic if needed, currently assumes store enum or similar
