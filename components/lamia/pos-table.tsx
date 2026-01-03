@@ -102,7 +102,7 @@ export function PosTable({ transactions }: { transactions: PosTransaction[] }) {
                                                 <TableCell className="px-2 py-2 text-xs text-slate-700 border-r border-slate-200 font-normal truncate" title={tx.store?.name || ""}>
                                                     {tx.store?.name || "-"}
                                                 </TableCell>
-                                                <TableCell className="px-2 py-2 text-right text-xs text-slate-700 border-r border-slate-200 font-normal truncate">
+                                                <TableCell className="px-2 py-2 text-right text-xs text-slate-900 border-r border-slate-200 font-bold truncate">
                                                     {Math.round(tx.amount).toLocaleString('tr-TR', { style: 'currency', currency: 'TRY', maximumFractionDigits: 0 })}
                                                 </TableCell>
                                                 <TableCell className="px-2 py-2 text-right text-xs text-red-600 border-r border-slate-200 truncate">
@@ -179,7 +179,7 @@ export function PosTable({ transactions }: { transactions: PosTransaction[] }) {
                                     <TableCell className="px-2 py-2 text-xs text-slate-700 border-r border-slate-200 font-normal truncate" title={tx.store?.name || ""}>
                                         {tx.store?.name || "-"}
                                     </TableCell>
-                                    <TableCell className="px-2 py-2 text-right text-xs text-slate-700 border-r border-slate-200 font-normal truncate">
+                                    <TableCell className="px-2 py-2 text-right text-xs text-slate-900 border-r border-slate-200 font-bold truncate">
                                         {Math.round(tx.amount).toLocaleString('tr-TR', { style: 'currency', currency: 'TRY', maximumFractionDigits: 0 })}
                                     </TableCell>
                                     <TableCell className="px-2 py-2 text-right text-xs text-red-600 border-r border-slate-200 truncate">

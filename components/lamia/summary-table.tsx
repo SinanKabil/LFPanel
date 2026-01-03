@@ -88,51 +88,78 @@ export function SummaryTable({ posTransactions, cashTransactions, stores }: Summ
     const top5Rows = generateRows(top5Stores).slice(0, 30)
     const allRows = generateRows(sortedStores) // All stores, sorted by revenue
 
-    const TableContent = ({ rows, columns }: { rows: any[], columns: any[] }) => (
-        <div className="rounded-md border border-slate-200 bg-white shadow-sm overflow-x-auto">
-            <Table>
-                <TableHeader>
-                    <TableRow className="bg-slate-100 border-b border-slate-200 hover:bg-slate-100">
-                        <TableHead className="text-left font-bold text-slate-700 whitespace-nowrap border-r border-slate-200 px-4 py-3 sticky left-0 bg-slate-100 z-10 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]">Tarih</TableHead>
-                        {columns.map(store => (
-                            <TableHead key={store.id} className="text-right font-bold text-slate-700 whitespace-nowrap border-r border-slate-200 px-4 py-3 min-w-[120px]">
-                                {store.name}
-                            </TableHead>
-                        ))}
-                        <TableHead className="text-right font-bold text-slate-900 whitespace-nowrap px-4 py-3 bg-slate-200/50 sticky right-0 z-10 shadow-[-2px_0_5px_-2px_rgba(0,0,0,0.1)]">TOPLAM</TableHead>
-                    </TableRow>
-                </TableHeader>
-                <TableBody>
-                    {rows.length === 0 ? (
-                        <TableRow>
-                            <TableCell colSpan={columns.length + 2} className="text-center py-8 text-slate-500">
-                                Kayıt bulunamadı.
-                            </TableCell>
+    const TableContent = ({ rows, columns }: { rows: any[], columns: any[] }) => {
+        // Find maximum value for heat map scaling
+        let maxVal = 0
+        rows.forEach(r => {
+            columns.forEach(c => {
+                const val = r[c.id] || 0
+                if (val > maxVal) maxVal = val
+            })
+        })
+
+        return (
+            <div className="rounded-md border border-slate-200 bg-white shadow-sm overflow-x-auto">
+                <Table>
+                    <TableHeader>
+                        <TableRow className="bg-slate-100 border-b border-slate-200 hover:bg-slate-100">
+                            <TableHead className="text-left font-bold text-slate-700 whitespace-nowrap border-r border-slate-200 px-4 py-3 sticky left-0 bg-slate-100 z-10 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]">Tarih</TableHead>
+                            {columns.map(store => (
+                                <TableHead key={store.id} className="text-right font-bold text-slate-700 whitespace-nowrap border-r border-slate-200 px-4 py-3 min-w-[120px]">
+                                    {store.name}
+                                </TableHead>
+                            ))}
+                            <TableHead className="text-right font-bold text-slate-900 whitespace-nowrap px-4 py-3 bg-slate-200/50 sticky right-0 z-10 shadow-[-2px_0_5px_-2px_rgba(0,0,0,0.1)]">TOPLAM</TableHead>
                         </TableRow>
-                    ) : (
-                        rows.map((row, idx) => (
-                            <TableRow key={idx} className="border-b border-slate-200 hover:bg-slate-50">
-                                <TableCell className="font-normal text-sm text-slate-700 whitespace-nowrap border-r border-slate-200 px-4 py-3 sticky left-0 bg-white z-10 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.05)] text-left">
-                                    {format(row.date, "d MMM yyyy", { locale: tr })}
-                                </TableCell>
-                                {columns.map(store => (
-                                    <TableCell key={store.id} className="text-right text-sm text-slate-700 border-r border-slate-200 px-4 py-3 font-normal">
-                                        {(row[store.id] || 0) > 0
-                                            ? <span>{Math.round(row[store.id]).toLocaleString('tr-TR', { style: 'currency', currency: 'TRY', maximumFractionDigits: 0 })}</span>
-                                            : "-"
-                                        }
-                                    </TableCell>
-                                ))}
-                                <TableCell className="text-right font-bold text-sm text-slate-900 px-4 py-3 bg-slate-50 sticky right-0 z-10 shadow-[-2px_0_5px_-2px_rgba(0,0,0,0.05)]">
-                                    {Math.round(row.total).toLocaleString('tr-TR', { style: 'currency', currency: 'TRY', maximumFractionDigits: 0 })}
+                    </TableHeader>
+                    <TableBody>
+                        {rows.length === 0 ? (
+                            <TableRow>
+                                <TableCell colSpan={columns.length + 2} className="text-center py-8 text-slate-500">
+                                    Kayıt bulunamadı.
                                 </TableCell>
                             </TableRow>
-                        ))
-                    )}
-                </TableBody>
-            </Table>
-        </div>
-    )
+                        ) : (
+                            rows.map((row, idx) => (
+                                <TableRow key={idx} className="border-b border-slate-200 hover:bg-slate-50">
+                                    <TableCell className="font-normal text-sm text-slate-700 whitespace-nowrap border-r border-slate-200 px-4 py-3 sticky left-0 bg-white z-10 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.05)] text-left">
+                                        {format(row.date, "d MMM yyyy", { locale: tr })}
+                                    </TableCell>
+                                    {columns.map(store => {
+                                        const val = row[store.id] || 0
+                                        const ratio = maxVal > 0 ? val / maxVal : 0
+                                        // Min opacity 0.05, Max 0.8 to keep it looking nice
+                                        // Green color: emerald-500 (16, 185, 129)
+                                        // Using rgba for transparency
+                                        const bgStyle = val > 0 ? { backgroundColor: `rgba(16, 185, 129, ${0.1 + ratio * 0.7})` } : {}
+
+                                        // Use white text if background is dark (ratio > 0.5), else dark text
+                                        const textClass = ratio > 0.5 ? "text-white font-medium" : "text-slate-700 font-normal"
+
+                                        return (
+                                            <TableCell
+                                                key={store.id}
+                                                className={`text-right text-sm border-r border-slate-200 px-4 py-3 ${textClass}`}
+                                                style={bgStyle}
+                                            >
+                                                {val > 0
+                                                    ? <span>{Math.round(val).toLocaleString('tr-TR', { style: 'currency', currency: 'TRY', maximumFractionDigits: 0 })}</span>
+                                                    : "-"
+                                                }
+                                            </TableCell>
+                                        )
+                                    })}
+                                    <TableCell className="text-right font-bold text-sm text-slate-900 px-4 py-3 bg-slate-50 sticky right-0 z-10 shadow-[-2px_0_5px_-2px_rgba(0,0,0,0.05)]">
+                                        {Math.round(row.total).toLocaleString('tr-TR', { style: 'currency', currency: 'TRY', maximumFractionDigits: 0 })}
+                                    </TableCell>
+                                </TableRow>
+                            ))
+                        )}
+                    </TableBody>
+                </Table>
+            </div>
+        )
+    }
 
     return (
         <div className="space-y-4">
