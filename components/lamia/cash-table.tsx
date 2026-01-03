@@ -88,14 +88,14 @@ export function CashTable({ transactions }: { transactions: CashTransaction[] })
                                     </TableHeader>
                                     <TableBody>
                                         {transactions.map((tx) => (
-                                            <TableRow key={tx.id} className="border-b border-slate-200 hover:bg-slate-50">
+                                            <TableRow key={tx.id} className="border-b border-slate-200 odd:bg-white even:bg-slate-50 hover:bg-slate-100">
                                                 <TableCell className="px-2 py-2 whitespace-nowrap text-xs text-slate-700 border-r border-slate-200 font-normal">
                                                     {format(new Date(tx.date), "dd.MM.yy", { locale: tr })}
                                                 </TableCell>
                                                 <TableCell className="px-2 py-2 text-xs text-slate-700 border-r border-slate-200 font-normal">
                                                     {tx.store?.name || "-"}
                                                 </TableCell>
-                                                <TableCell className="px-2 py-2 text-right text-xs font-bold text-slate-900 border-r border-slate-200">
+                                                <TableCell className="px-2 py-2 text-right text-xs font-bold text-green-600 border-r border-slate-200">
                                                     {Math.round(tx.amount).toLocaleString('tr-TR', { style: 'currency', currency: 'TRY', maximumFractionDigits: 0 })}
                                                 </TableCell>
                                                 <TableCell className="px-2 py-2 text-xs text-slate-700 border-r border-slate-200 font-normal truncate max-w-[150px]" title={tx.note || ""}>
@@ -155,14 +155,14 @@ export function CashTable({ transactions }: { transactions: CashTransaction[] })
                             </TableRow>
                         ) : (
                             displayTransactions.map((tx) => (
-                                <TableRow key={tx.id} className="border-b border-slate-200 hover:bg-slate-50">
+                                <TableRow key={tx.id} className="border-b border-slate-200 odd:bg-white even:bg-slate-50 hover:bg-slate-100">
                                     <TableCell className="px-2 py-2 whitespace-nowrap text-xs text-slate-700 border-r border-slate-200 font-normal">
                                         {format(new Date(tx.date), "dd.MM.yy", { locale: tr })}
                                     </TableCell>
                                     <TableCell className="px-2 py-2 text-xs text-slate-700 border-r border-slate-200 font-normal">
                                         {tx.store?.name || "-"}
                                     </TableCell>
-                                    <TableCell className="px-2 py-2 text-right text-xs font-bold text-slate-900 border-r border-slate-200">
+                                    <TableCell className="px-2 py-2 text-right text-xs font-bold text-green-600 border-r border-slate-200">
                                         {Math.round(tx.amount).toLocaleString('tr-TR', { style: 'currency', currency: 'TRY', maximumFractionDigits: 0 })}
                                     </TableCell>
                                     <TableCell className="px-2 py-2 text-xs text-slate-700 border-r border-slate-200 font-normal truncate max-w-[150px]" title={tx.note || ""}>
