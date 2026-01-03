@@ -88,11 +88,41 @@ export async function updateExpense(id: string, data: ExpenseFormData) {
 
 export async function getExpenseCategories() {
     try {
-        const categories = await prisma.expenseCategory.findMany({
+        // 1. Get defined categories
+        const definedCategories = await prisma.expenseCategory.findMany({
             orderBy: { name: "asc" },
         })
-        return { success: true, data: categories }
+
+        // 2. Get used categories from expenses (to find ones imported via Excel but not in category list)
+        // This acts as a self-healing mechanism
+        const distinctUsedCategories = await prisma.expense.findMany({
+            select: { category: true },
+            distinct: ['category'],
+        })
+
+        const definedNames = new Set(definedCategories.map(c => c.name))
+        const missingCategories = distinctUsedCategories
+            .map(e => e.category)
+            .filter(c => c && !definedNames.has(c))
+
+        // 3. Create missing categories if any
+        if (missingCategories.length > 0) {
+            console.log("Found missing categories, syncing:", missingCategories)
+            await prisma.expenseCategory.createMany({
+                data: missingCategories.map(name => ({ name })),
+                skipDuplicates: true
+            })
+
+            // Refetch to include new ones
+            const updatedCategories = await prisma.expenseCategory.findMany({
+                orderBy: { name: "asc" },
+            })
+            return { success: true, data: updatedCategories }
+        }
+
+        return { success: true, data: definedCategories }
     } catch (error) {
+        console.error("Get Categories Error:", error)
         return { success: false, error: "Failed to fetch categories" }
     }
 }
