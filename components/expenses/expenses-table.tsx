@@ -184,8 +184,8 @@ function TableRows({ dates, groupedByDate, categories, handleEdit, handleDelete,
             .filter(Boolean)
 
         return (
-            <TableRow key={dateKey} className="border-b border-slate-200 hover:bg-slate-50">
-                <TableCell className="text-sm font-medium text-slate-900 border-r border-slate-200 px-4 py-3 whitespace-nowrap sticky left-0 bg-white z-10 w-[120px]">
+            <TableRow key={dateKey} className="border-b border-slate-200 odd:bg-white even:bg-slate-50 hover:bg-slate-100">
+                <TableCell className="text-sm font-medium text-slate-900 border-r border-slate-200 px-4 py-3 whitespace-nowrap sticky left-0 bg-inherit z-10 w-[120px]">
                     {format(row.date, "d MMMM yyyy", { locale: tr })}
                 </TableCell>
 
@@ -206,27 +206,29 @@ function TableRows({ dates, groupedByDate, categories, handleEdit, handleDelete,
                     {dailyTotal.toLocaleString('tr-TR', { style: 'currency', currency: 'TRY', maximumFractionDigits: 0 })}
                 </TableCell>
 
-                <div className="flex items-center justify-center gap-1">
-                    <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-8 w-8 text-blue-600 hover:bg-blue-50"
-                        onClick={() => activeExpenses.length === 1 ? handleEdit(activeExpenses[0]) : handleActionClick(row)}
-                        title="Düzenle"
-                    >
-                        <Pencil className="h-4 w-4" />
-                    </Button>
-                    <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-8 w-8 text-red-600 hover:bg-red-50"
-                        onClick={() => activeExpenses.length === 1 ? handleDelete(activeExpenses[0].id) : handleActionClick(row)}
-                        disabled={loading}
-                        title="Sil"
-                    >
-                        <Trash2 className="h-4 w-4" />
-                    </Button>
-                </div>
+                <TableCell className="text-center px-4 py-3">
+                    <div className="flex items-center justify-center gap-1">
+                        <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8 text-blue-600 hover:bg-blue-50"
+                            onClick={() => activeExpenses.length === 1 ? handleEdit(activeExpenses[0]) : handleActionClick(row)}
+                            title="Düzenle"
+                        >
+                            <Pencil className="h-4 w-4" />
+                        </Button>
+                        <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8 text-red-600 hover:bg-red-50"
+                            onClick={() => activeExpenses.length === 1 ? handleDelete(activeExpenses[0].id) : handleActionClick(row)}
+                            disabled={loading}
+                            title="Sil"
+                        >
+                            <Trash2 className="h-4 w-4" />
+                        </Button>
+                    </div>
+                </TableCell>
             </TableRow>
         )
     })
