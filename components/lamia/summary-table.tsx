@@ -121,7 +121,7 @@ export function SummaryTable({ posTransactions, cashTransactions, stores }: Summ
                             </TableRow>
                         ) : (
                             rows.map((row, idx) => (
-                                <TableRow key={idx} className="border-b border-slate-200 hover:bg-slate-50">
+                                <TableRow key={idx} className="border-b border-slate-200 odd:bg-white even:bg-slate-50 hover:bg-slate-100">
                                     <TableCell className="font-normal text-sm text-slate-700 whitespace-nowrap border-r border-slate-200 px-4 py-3 sticky left-0 bg-white z-10 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.05)] text-left">
                                         {format(row.date, "d MMM yyyy", { locale: tr })}
                                     </TableCell>
