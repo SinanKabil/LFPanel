@@ -128,13 +128,14 @@ export function SummaryTable({ posTransactions, cashTransactions, stores }: Summ
                                     {columns.map(store => {
                                         const val = row[store.id] || 0
                                         const ratio = maxVal > 0 ? val / maxVal : 0
-                                        // Min opacity 0.05, Max 0.8 to keep it looking nice
-                                        // Green color: emerald-500 (16, 185, 129)
-                                        // Using rgba for transparency
-                                        const bgStyle = val > 0 ? { backgroundColor: `rgba(16, 185, 129, ${0.1 + ratio * 0.7})` } : {}
 
-                                        // Use white text if background is dark (ratio > 0.5), else dark text
-                                        const textClass = ratio > 0.5 ? "text-white font-medium" : "text-slate-700 font-normal"
+                                        // Refined Heatmap: Muted Green
+                                        // Min opacity 0.05 (barely visible) to Max 0.35 (light green)
+                                        // This ensures black text is always readable underneath
+                                        const bgStyle = val > 0 ? { backgroundColor: `rgba(16, 185, 129, ${0.05 + ratio * 0.3})` } : {}
+
+                                        // Always use dark text for consistency and readability
+                                        const textClass = "text-slate-700 font-normal"
 
                                         return (
                                             <TableCell
