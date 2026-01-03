@@ -67,16 +67,10 @@ export function ExpensesTable({ expenses, categories, store, showAll = false }: 
 
     const allSortedDates = Object.keys(groupedByDate).sort((a, b) => b.localeCompare(a)) // Descending
 
-    // Filter for last 1 month unless showAll is true
-    const oneMonthAgo = new Date()
-    oneMonthAgo.setMonth(oneMonthAgo.getMonth() - 1)
-
+    // Filter for max 30 days unless showAll is true
     const displayedDates = showAll
         ? allSortedDates
-        : allSortedDates.filter(dateKey => {
-            const date = new Date(dateKey)
-            return date >= oneMonthAgo
-        })
+        : allSortedDates.slice(0, 30)
 
     const handleActionClick = (row: any) => {
         setSelectedRow(row)
