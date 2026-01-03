@@ -242,6 +242,27 @@ export async function importData(formData: FormData, type: "pos" | "cash" | "exp
                 await prisma.posTransaction.createMany({ data: transactionsToCreate })
                 count = transactionsToCreate.length
             }
+        } else if (type === "expense") {
+            const expensesData = []
+            for (const row of jsonData as any[]) {
+                const date = new Date(row["Tarih"])
+                if (isNaN(date.getTime())) continue
+
+                expensesData.push({
+                    date,
+                    store: "LAMIAFERIS" as any, // Cast to Store enum
+                    category: row["Kategori"] || "Genel",
+                    amountTL: parseFloat(row["Tutar_TL"] || "0"),
+                    amountUSD: 0, // Lamiaferis expenses are primarily TL
+                    exchangeRate: 0,
+                    description: row["Açıklama"]
+                })
+            }
+
+            if (expensesData.length > 0) {
+                await prisma.expense.createMany({ data: expensesData })
+                count = expensesData.length
+            }
         } else if (type === "etsy_sales") {
             const products = await prisma.product.findMany()
             const productMap = new Map(products.map(p => [p.name.trim().toLowerCase(), p.id])) // Match by Name
