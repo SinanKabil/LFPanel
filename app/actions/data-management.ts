@@ -3,6 +3,57 @@
 
 import { prisma } from "@/lib/prisma"
 import * as XLSX from "xlsx"
+import { parse, isValid } from "date-fns"
+
+// Helper to parse dates from various Excel formats
+function parseImportDate(value: any): Date | null {
+    if (!value) return null
+    if (value instanceof Date && !isNaN(value.getTime())) return value
+
+    // 1. Handle numeric Excel serial dates (if cellDates: true somehow missed a cell but returned a number)
+    // Excel base date is Dec 30 1899 usually (25569 days offset from Unix epoch)
+    if (typeof value === 'number') {
+        const date = new Date((value - 25569) * 86400 * 1000)
+        return isNaN(date.getTime()) ? null : date
+    }
+
+    if (typeof value === 'string') {
+        const trimmed = value.trim()
+
+        // 2. Try ISO format or standard Date string
+        let date = new Date(trimmed)
+        if (!isNaN(date.getTime())) return date
+
+        // 3. Try TR format dd.MM.yyyy
+        if (trimmed.includes('.')) {
+            // Split by dot
+            const parts = trimmed.split('.')
+            if (parts.length === 3) {
+                // date-fns parse(dateString, formatString, referenceDate)
+                // Or manual:
+                const d = parseInt(parts[0])
+                const m = parseInt(parts[1]) - 1 // JS months 0-11
+                const y = parseInt(parts[2])
+                date = new Date(y, m, d)
+                if (!isNaN(date.getTime())) return date
+            }
+        }
+
+        // 4. Try format dd/MM/yyyy
+        if (trimmed.includes('/')) {
+            const parts = trimmed.split('/')
+            if (parts.length === 3) {
+                const d = parseInt(parts[0])
+                const m = parseInt(parts[1]) - 1
+                const y = parseInt(parts[2])
+                date = new Date(y, m, d)
+                if (!isNaN(date.getTime())) return date
+            }
+        }
+    }
+
+    return null
+}
 
 export async function exportData(type: "pos" | "cash" | "expense" | "etsy_sales" | "etsy_expense", brand: string) {
     try {
@@ -27,6 +78,7 @@ export async function exportData(type: "pos" | "cash" | "expense" | "etsy_sales"
             })
             data = transactions.map(t => ({
                 Tarih: t.date,
+                Mağaza: t.store?.name,
                 Tutar: t.amount,
                 Açıklama: t.note
             }))
@@ -138,7 +190,8 @@ export async function importData(formData: FormData, type: "pos" | "cash" | "exp
         const buffer = Buffer.from(bytes)
         const wb = XLSX.read(buffer, { type: "buffer" })
         const ws = wb.Sheets[wb.SheetNames[0]]
-        const jsonData = XLSX.utils.sheet_to_json(ws)
+        // Use cellDates: true to let XLSX parse dates automatically where possible
+        const jsonData = XLSX.utils.sheet_to_json(ws, { cellDates: true })
 
         if (jsonData.length === 0) return { success: false, error: "Dosya boş veya format hatalı." }
 
@@ -151,12 +204,12 @@ export async function importData(formData: FormData, type: "pos" | "cash" | "exp
             const transactionsToCreate = []
 
             for (const row of jsonData as any[]) {
-                const dateStr = row["Tarih"]
+                const date = parseImportDate(row["Tarih"])
                 const storeName = row["Mağaza"]
                 const amount = parseFloat(row["Tutar"])
                 const note = row["Açıklama"]
 
-                if (!dateStr || !storeName || isNaN(amount)) continue
+                if (!date || !storeName || isNaN(amount)) continue
 
                 // Resolve Store
                 let storeId = storeMap.get(storeName.trim().toLowerCase())
@@ -167,7 +220,7 @@ export async function importData(formData: FormData, type: "pos" | "cash" | "exp
                 }
 
                 transactionsToCreate.push({
-                    date: new Date(dateStr),
+                    date,
                     storeId,
                     amount,
                     note: note ? String(note) : null
@@ -190,13 +243,13 @@ export async function importData(formData: FormData, type: "pos" | "cash" | "exp
             const transactionsToCreate = []
 
             for (const row of jsonData as any[]) {
-                const dateStr = row["Tarih"]
+                const date = parseImportDate(row["Tarih"])
                 const storeName = row["Mağaza"]
                 const amount = parseFloat(row["Tutar"])
                 const rateVal = parseFloat(row["Komisyon_Oranı"])
                 const note = row["Not"]
 
-                if (!dateStr || !storeName || isNaN(amount) || isNaN(rateVal)) continue
+                if (!date || !storeName || isNaN(amount) || isNaN(rateVal)) continue
 
                 // 1. Resolve Store
                 let storeId = storeMap.get(storeName.trim().toLowerCase())
@@ -228,7 +281,7 @@ export async function importData(formData: FormData, type: "pos" | "cash" | "exp
                 const net = amount - commissionAmount
 
                 transactionsToCreate.push({
-                    date: new Date(dateStr),
+                    date,
                     storeId,
                     amount,
                     commissionRateId,
@@ -245,8 +298,8 @@ export async function importData(formData: FormData, type: "pos" | "cash" | "exp
         } else if (type === "expense") {
             const expensesData = []
             for (const row of jsonData as any[]) {
-                const date = new Date(row["Tarih"])
-                if (isNaN(date.getTime())) continue
+                const date = parseImportDate(row["Tarih"])
+                if (!date) continue
 
                 expensesData.push({
                     date,
@@ -269,7 +322,9 @@ export async function importData(formData: FormData, type: "pos" | "cash" | "exp
 
             const salesData = []
             for (const row of jsonData as any[]) {
-                const date = new Date(row["Tarih"])
+                const date = parseImportDate(row["Tarih"])
+                if (!date) continue
+
                 const store = row["Mağaza"] as any // Cast to Enum later or validate
                 const saleType = row["Tip"] as any
                 const productName = row["Ürün"]
@@ -314,8 +369,8 @@ export async function importData(formData: FormData, type: "pos" | "cash" | "exp
         } else if (type === "etsy_expense") {
             const expensesData = []
             for (const row of jsonData as any[]) {
-                const date = new Date(row["Tarih"])
-                if (isNaN(date.getTime())) continue
+                const date = parseImportDate(row["Tarih"])
+                if (!date) continue
 
                 const store = row["Mağaza"]
                 if (!["RADIANT_JEWELRY_GIFT", "THE_TRENDY_OUTFITTERS"].includes(store)) continue
