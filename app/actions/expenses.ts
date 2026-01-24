@@ -7,9 +7,19 @@ import { prisma } from "@/lib/prisma"
 
 import { Store } from "@prisma/client"
 
-export async function getExpenses(store?: Store) {
+export async function getExpenses(store?: Store | "etsy") {
     try {
-        const where = store ? { store } : {}
+        let where: any = {}
+        if (store === "etsy") {
+            where = {
+                store: {
+                    in: [Store.RADIANT_JEWELRY_GIFT, Store.THE_TRENDY_OUTFITTERS]
+                }
+            }
+        } else if (store) {
+            where = { store }
+        }
+
         const expenses = await prisma.expense.findMany({
             where,
             orderBy: { date: "desc" },
@@ -28,15 +38,19 @@ export type ExpenseFormData = {
     date: Date
     category: string
     store: Store
-    amountTL?: number
-    amountUSD?: number
-    exchangeRate?: number
+    amountTL?: number | null
+    amountUSD?: number | null
+    exchangeRate?: number | null
     description?: string
 }
 
 export async function createExpense(data: ExpenseFormData) {
     try {
-        if (!data.amountTL && !data.amountUSD) {
+        // Validation: At least one amount must be greater than 0
+        const hasTL = data.amountTL !== undefined && data.amountTL !== null && data.amountTL > 0
+        const hasUSD = data.amountUSD !== undefined && data.amountUSD !== null && data.amountUSD > 0
+
+        if (!hasTL && !hasUSD) {
             return { success: false, error: "Amount is required (TL or USD)" }
         }
 
@@ -45,9 +59,9 @@ export async function createExpense(data: ExpenseFormData) {
                 date: data.date,
                 category: data.category,
                 store: data.store,
-                amountTL: data.amountTL,
-                amountUSD: data.amountUSD,
-                exchangeRate: data.exchangeRate,
+                amountTL: data.amountTL || null,
+                amountUSD: data.amountUSD || null,
+                exchangeRate: data.exchangeRate || null,
                 description: data.description,
             },
         })
@@ -61,7 +75,10 @@ export async function createExpense(data: ExpenseFormData) {
 
 export async function updateExpense(id: string, data: ExpenseFormData) {
     try {
-        if (!data.amountTL && !data.amountUSD) {
+        const hasTL = data.amountTL !== undefined && data.amountTL !== null && data.amountTL > 0
+        const hasUSD = data.amountUSD !== undefined && data.amountUSD !== null && data.amountUSD > 0
+
+        if (!hasTL && !hasUSD) {
             return { success: false, error: "Amount is required (TL or USD)" }
         }
 
@@ -71,9 +88,9 @@ export async function updateExpense(id: string, data: ExpenseFormData) {
                 date: data.date,
                 category: data.category,
                 store: data.store,
-                amountTL: data.amountTL,
-                amountUSD: data.amountUSD,
-                exchangeRate: data.exchangeRate,
+                amountTL: data.amountTL || null,
+                amountUSD: data.amountUSD || null,
+                exchangeRate: data.exchangeRate || null,
                 description: data.description,
             },
         })
@@ -86,40 +103,19 @@ export async function updateExpense(id: string, data: ExpenseFormData) {
 
 // --- CATEGORY ACTIONS ---
 
-export async function getExpenseCategories() {
+export async function getExpenseCategories(type: "ETSY" | "LAMIAFERIS" = "ETSY") {
     try {
-        // 1. Get defined categories
+        // 1. Get defined categories by type
         const definedCategories = await prisma.expenseCategory.findMany({
+            where: { type },
             orderBy: { name: "asc" },
         })
 
-        // 2. Get used categories from expenses (to find ones imported via Excel but not in category list)
-        // This acts as a self-healing mechanism
-        const distinctUsedCategories = await prisma.expense.findMany({
-            select: { category: true },
-            distinct: ['category'],
-        })
+        // 2. We skip self-healing for now or adapt it. 
+        // If we want self-healing, we need to know the type of existing expenses, but Expense model doesn't have type.
+        // It has Store. Store implies type.
 
-        const definedNames = new Set(definedCategories.map(c => c.name))
-        const missingCategories = distinctUsedCategories
-            .map(e => e.category)
-            .filter(c => c && !definedNames.has(c))
-
-        // 3. Create missing categories if any
-        if (missingCategories.length > 0) {
-            console.log("Found missing categories, syncing:", missingCategories)
-            await prisma.expenseCategory.createMany({
-                data: missingCategories.map(name => ({ name })),
-                skipDuplicates: true
-            })
-
-            // Refetch to include new ones
-            const updatedCategories = await prisma.expenseCategory.findMany({
-                orderBy: { name: "asc" },
-            })
-            return { success: true, data: updatedCategories }
-        }
-
+        // Let's rely on defined categories for now to ensure strict separation as requested.
         return { success: true, data: definedCategories }
     } catch (error) {
         console.error("Get Categories Error:", error)
@@ -127,32 +123,34 @@ export async function getExpenseCategories() {
     }
 }
 
-export async function createExpenseCategory(name: string) {
+export async function createExpenseCategory(name: string, type: "ETSY" | "LAMIAFERIS" = "ETSY") {
     try {
         const existing = await prisma.expenseCategory.findUnique({
-            where: { name },
+            where: {
+                name_type: {
+                    name: name,
+                    type: type
+                }
+            }
         })
         if (existing) {
             return { success: false, error: "Category already exists" }
         }
         const category = await prisma.expenseCategory.create({
-            data: { name },
+            data: { name, type },
         })
         revalidatePath("/dashboard")
         return { success: true, data: category }
     } catch (error) {
+        console.error(error)
         return { success: false, error: "Failed to create category" }
     }
 }
 
 export async function updateExpenseCategory(id: string, name: string) {
     try {
-        const existing = await prisma.expenseCategory.findUnique({
-            where: { name },
-        })
-        if (existing && existing.id !== id) {
-            return { success: false, error: "Category already exists" }
-        }
+        // We need to check uniqueness again but we don't know the type easily without fetching.
+        // For simplicity, let's just update and let Prisma throw if unique constraint fails.
         await prisma.expenseCategory.update({
             where: { id },
             data: { name },

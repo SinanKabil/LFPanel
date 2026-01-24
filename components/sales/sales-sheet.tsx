@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react"
 import { format } from "date-fns"
 import { tr } from "date-fns/locale"
-import { CalendarIcon, Save } from "lucide-react"
+import { CalendarIcon, Save, Check, ChevronsUpDown } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -28,6 +28,14 @@ import {
     PopoverContent,
     PopoverTrigger,
 } from "@/components/ui/popover"
+import {
+    Command,
+    CommandEmpty,
+    CommandGroup,
+    CommandInput,
+    CommandItem,
+    CommandList,
+} from "@/components/ui/command"
 import { Calendar } from "@/components/ui/calendar"
 import { createSale, updateSale, SaleFormData } from "@/app/actions/sales"
 
@@ -35,23 +43,41 @@ type Product = {
     id: string
     name: string
     costUSD: number
+    productId: string // Added to match potential incoming data structure if needed, but mainly id is used
 }
 
 // Define the Sale type that matches our form needs
 export type SaleFormValues = {
     id?: string
-    store: string
-    type: string
+    store: string // Assuming Store is a string enum or type, keeping as string for now
+    type: string // Assuming SaleType is a string enum or type, keeping as string for now
     productId: string
     quantity: number
     date: Date
     orderNo: string
-    buyerPaid: number
-    feesCredits: number
-    totalSalePriceTL: number
-    productCost: number
-    shippingCost: number
-    discountRate?: number
+    buyerPaid: number | ""
+    feesCredits: number | ""
+    tax: number | ""
+    totalSalePriceTL: number | ""
+    productCost: number | ""
+    shippingCost: number | ""
+    discountRate: number | ""
+}
+
+const defaultSettings: SaleFormValues = {
+    store: "RADIANT_JEWELRY_GIFT",
+    type: "ORGANIC",
+    productId: "",
+    quantity: 1,
+    date: new Date(),
+    orderNo: "",
+    buyerPaid: "",
+    feesCredits: "",
+    tax: "",
+    totalSalePriceTL: "",
+    productCost: "",
+    shippingCost: "",
+    discountRate: "",
 }
 
 interface SalesSheetProps {
@@ -63,40 +89,45 @@ interface SalesSheetProps {
 
 export function SalesSheet({ open, onOpenChange, initialData, products }: SalesSheetProps) {
     const [loading, setLoading] = useState(false)
-    const [formData, setFormData] = useState<SaleFormValues>({
-        store: "RADIANT_JEWELRY_GIFT",
-        type: "SALE",
-        productId: "",
-        quantity: 1,
-        date: new Date(),
-        orderNo: "",
-        buyerPaid: 0,
-        feesCredits: 0,
-        totalSalePriceTL: 0,
-        productCost: 0,
-        shippingCost: 0,
-    })
+    const [isCalendarOpen, setIsCalendarOpen] = useState(false)
+    const [isProductOpen, setIsProductOpen] = useState(false)
+
+    const [formData, setFormData] = useState<SaleFormValues>(defaultSettings)
 
     useEffect(() => {
         if (open) {
             if (initialData) {
                 setFormData({
-                    ...initialData,
-                    date: new Date(initialData.date)
+                    id: initialData.id,
+                    store: initialData.store,
+                    type: initialData.type,
+                    productId: initialData.productId,
+                    quantity: initialData.quantity,
+                    date: new Date(initialData.date),
+                    orderNo: initialData.orderNo,
+                    buyerPaid: initialData.buyerPaid,
+                    feesCredits: initialData.feesCredits,
+                    tax: initialData.tax || "",
+                    totalSalePriceTL: initialData.totalSalePriceTL,
+                    productCost: initialData.productCost,
+                    shippingCost: initialData.shippingCost,
+                    discountRate: initialData.discountRate || "",
                 })
             } else {
                 setFormData({
                     store: "RADIANT_JEWELRY_GIFT",
-                    type: "SALE", // Fixed default
+                    type: "ORGANIC",
                     productId: products.length > 0 ? products[0].id : "",
                     quantity: 1,
                     date: new Date(),
                     orderNo: "",
-                    buyerPaid: 0,
-                    feesCredits: 0,
-                    totalSalePriceTL: 0,
-                    productCost: 0,
-                    shippingCost: 0,
+                    buyerPaid: "",
+                    feesCredits: "",
+                    tax: "",
+                    totalSalePriceTL: "",
+                    productCost: "",
+                    shippingCost: "",
+                    discountRate: "",
                 })
             }
         }
@@ -168,7 +199,7 @@ export function SalesSheet({ open, onOpenChange, initialData, products }: SalesS
                                 </div>
                                 <div className="space-y-2">
                                     <Label className="text-slate-600 font-medium">Tarih</Label>
-                                    <Popover>
+                                    <Popover open={isCalendarOpen} onOpenChange={setIsCalendarOpen}>
                                         <PopoverTrigger asChild>
                                             <Button
                                                 variant={"outline"}
@@ -185,7 +216,12 @@ export function SalesSheet({ open, onOpenChange, initialData, products }: SalesS
                                             <Calendar
                                                 mode="single"
                                                 selected={formData.date}
-                                                onSelect={(d) => d && handleInputChange("date", d)}
+                                                onSelect={(d) => {
+                                                    if (d) {
+                                                        handleInputChange("date", d)
+                                                        setIsCalendarOpen(false)
+                                                    }
+                                                }}
                                                 locale={tr}
                                                 className="text-slate-900"
                                             />
@@ -194,37 +230,63 @@ export function SalesSheet({ open, onOpenChange, initialData, products }: SalesS
                                 </div>
                             </div>
 
-                            {/* Row 2: Order No & Initial Quantity/Discount Row? No, Order No usually full width or paired.
-                                User said "Product options should be full width like Order No".
-                                So Order No is full width.
-                            */}
-
+                            {/* Row 2: Order No */}
                             <div className="space-y-2">
                                 <Label className="text-slate-600 font-medium">Sipariş Numarası</Label>
                                 <Input
-                                    placeholder="#123-45678-90123"
+                                    placeholder="3949577961"
                                     value={formData.orderNo}
                                     onChange={(e) => handleInputChange("orderNo", e.target.value)}
                                     className="bg-slate-50 border-slate-200 h-10"
                                 />
                             </div>
 
-                            {/* Row 3: Product Full Width */}
+                            {/* Row 3: Product Full Width (Combobox) */}
                             <div className="space-y-2">
                                 <Label className="text-slate-600 font-medium">Ürün</Label>
-                                <Select
-                                    value={formData.productId}
-                                    onValueChange={(v) => handleInputChange("productId", v)}
-                                >
-                                    <SelectTrigger className="w-full bg-slate-50 border-slate-200 h-10">
-                                        <SelectValue placeholder="Ürün seçin" />
-                                    </SelectTrigger>
-                                    <SelectContent className="bg-white border-slate-200 max-h-[240px]">
-                                        {products.map((p) => (
-                                            <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
-                                        ))}
-                                    </SelectContent>
-                                </Select>
+                                <Popover open={isProductOpen} onOpenChange={setIsProductOpen}>
+                                    <PopoverTrigger asChild>
+                                        <Button
+                                            variant="outline"
+                                            role="combobox"
+                                            aria-expanded={isProductOpen}
+                                            className="w-full justify-between bg-slate-50 border-slate-200 h-10 font-normal hover:bg-slate-50 hover:text-slate-900"
+                                        >
+                                            {formData.productId
+                                                ? products.find((product) => product.id === formData.productId)?.name
+                                                : "Ürün seçin..."}
+                                            <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                                        </Button>
+                                    </PopoverTrigger>
+                                    <PopoverContent className="w-[var(--radix-popover-trigger-width)] p-0 bg-white border-slate-200 z-[100]" align="start">
+                                        <Command>
+                                            <CommandInput placeholder="Ürün ara..." />
+                                            <CommandList>
+                                                <CommandEmpty>Ürün bulunamadı.</CommandEmpty>
+                                                <CommandGroup>
+                                                    {products.map((product) => (
+                                                        <CommandItem
+                                                            key={product.id}
+                                                            value={product.name}
+                                                            onSelect={(currentValue) => {
+                                                                handleInputChange("productId", product.id === formData.productId ? "" : product.id)
+                                                                setIsProductOpen(false)
+                                                            }}
+                                                        >
+                                                            <Check
+                                                                className={cn(
+                                                                    "mr-2 h-4 w-4",
+                                                                    formData.productId === product.id ? "opacity-100" : "opacity-0"
+                                                                )}
+                                                            />
+                                                            {product.name}
+                                                        </CommandItem>
+                                                    ))}
+                                                </CommandGroup>
+                                            </CommandList>
+                                        </Command>
+                                    </PopoverContent>
+                                </Popover>
                             </div>
 
                             {/* Row 4: Quantity & Discount Rate */}
@@ -257,59 +319,70 @@ export function SalesSheet({ open, onOpenChange, initialData, products }: SalesS
                                 </div>
                             </div>
 
-                            {/* Financials Block - Clean, no headers, just fields per request */}
+                            {/* Financials Block */}
                             <div className="pt-2 space-y-4">
 
                                 {/* Row 1: Buyer Paid & Fees/Credits */}
                                 <div className="grid grid-cols-2 gap-4">
                                     <div className="space-y-2">
-                                        <Label className="text-slate-600 font-medium text-xs uppercase">Müşteri Ödemesi ($)</Label>
+                                        <Label className="text-slate-600 font-medium">Müşteri Ödemesi ($)</Label>
                                         <Input
                                             type="number" step="0.01" placeholder="0.00"
                                             value={formData.buyerPaid || ""}
-                                            onChange={(e) => handleInputChange("buyerPaid", parseFloat(e.target.value))}
+                                            onChange={(e) => handleInputChange("buyerPaid", e.target.value === "" ? "" : parseFloat(e.target.value))}
                                             className="bg-white border-orange-200 focus:border-orange-500 h-10"
                                         />
                                     </div>
                                     <div className="space-y-2">
-                                        <Label className="text-slate-600 font-medium text-xs uppercase">Kesintiler ($)</Label>
+                                        <Label className="text-slate-600 font-medium">Kesintiler ($)</Label>
                                         <Input
                                             type="number" step="0.01" placeholder="0.00"
                                             value={formData.feesCredits || ""}
-                                            onChange={(e) => handleInputChange("feesCredits", parseFloat(e.target.value))}
+                                            onChange={(e) => handleInputChange("feesCredits", e.target.value === "" ? "" : parseFloat(e.target.value))}
                                             className="bg-white border-slate-200 h-10"
                                         />
                                     </div>
                                 </div>
 
-                                {/* Row 2: Total Sale Price (Full Width) */}
-                                <div className="space-y-2">
-                                    <Label className="text-slate-600 font-medium text-xs uppercase">Toplam Satış (TL)</Label>
-                                    <Input
-                                        type="number" step="0.01" placeholder="0.00"
-                                        value={formData.totalSalePriceTL || ""}
-                                        onChange={(e) => handleInputChange("totalSalePriceTL", parseFloat(e.target.value))}
-                                        className="bg-white border-orange-200 focus:border-orange-500 h-10"
-                                    />
+                                {/* Row 2: Tax & Total Sale Price */}
+                                <div className="grid grid-cols-2 gap-4">
+                                    <div className="space-y-2">
+                                        <Label className="text-slate-600 font-medium">Vergi ($)</Label>
+                                        <Input
+                                            type="number" step="0.01" placeholder="0.00"
+                                            value={formData.tax || ""}
+                                            onChange={(e) => handleInputChange("tax", e.target.value === "" ? "" : parseFloat(e.target.value))}
+                                            className="bg-white border-slate-200 h-10"
+                                        />
+                                    </div>
+                                    <div className="space-y-2">
+                                        <Label className="text-slate-600 font-medium">Toplam Satış (TL)</Label>
+                                        <Input
+                                            type="number" step="0.01" placeholder="0.00"
+                                            value={formData.totalSalePriceTL || ""}
+                                            onChange={(e) => handleInputChange("totalSalePriceTL", e.target.value === "" ? "" : parseFloat(e.target.value))}
+                                            className="bg-white border-orange-200 focus:border-orange-500 h-10"
+                                        />
+                                    </div>
                                 </div>
 
                                 {/* Row 3: Product Cost & Shipping Cost */}
                                 <div className="grid grid-cols-2 gap-4">
                                     <div className="space-y-2">
-                                        <Label className="text-slate-600 font-medium text-xs uppercase">Ürün Maliyeti ($)</Label>
+                                        <Label className="text-slate-600 font-medium">Ürün Maliyeti ($)</Label>
                                         <Input
                                             type="number" step="0.01" placeholder="0.00"
                                             value={formData.productCost || ""}
-                                            onChange={(e) => handleInputChange("productCost", parseFloat(e.target.value))}
+                                            onChange={(e) => handleInputChange("productCost", e.target.value === "" ? "" : parseFloat(e.target.value))}
                                             className="bg-white border-slate-200 h-10"
                                         />
                                     </div>
                                     <div className="space-y-2">
-                                        <Label className="text-slate-600 font-medium text-xs uppercase">Kargo Maliyeti ($)</Label>
+                                        <Label className="text-slate-600 font-medium">Kargo Maliyeti ($)</Label>
                                         <Input
                                             type="number" step="0.01" placeholder="0.00"
                                             value={formData.shippingCost || ""}
-                                            onChange={(e) => handleInputChange("shippingCost", parseFloat(e.target.value))}
+                                            onChange={(e) => handleInputChange("shippingCost", e.target.value === "" ? "" : parseFloat(e.target.value))}
                                             className="bg-white border-slate-200 h-10"
                                         />
                                     </div>
@@ -334,4 +407,3 @@ export function SalesSheet({ open, onOpenChange, initialData, products }: SalesS
         </Sheet>
     )
 }
-

@@ -15,7 +15,7 @@ import { SalesSheet, SaleFormValues } from "./sales-sheet"
 import { subDays, subMonths, subYears, isAfter, startOfYear } from "date-fns"
 
 export default function SalesView({ sales, products }: { sales: any[], products: any[] }) {
-    const [periodFilter, setPeriodFilter] = useState("all") // week, month, year, last_year, all
+    const [periodFilter, setPeriodFilter] = useState("week") // week, month, year, last_year, all
     const [storeFilter, setStoreFilter] = useState("all")
     const [productFilter, setProductFilter] = useState("all")
     const [isSheetOpen, setIsSheetOpen] = useState(false)
@@ -68,6 +68,7 @@ export default function SalesView({ sales, products }: { sales: any[], products:
             orderNo: sale.orderNo,
             buyerPaid: sale.buyerPaid,
             feesCredits: sale.feesCredits,
+            tax: sale.tax,
             totalSalePriceTL: sale.totalSalePriceTL,
             productCost: sale.productCost,
             shippingCost: sale.shippingCost,
@@ -108,23 +109,25 @@ export default function SalesView({ sales, products }: { sales: any[], products:
                         </SelectTrigger>
                         <SelectContent className="bg-white border-slate-200 text-slate-900">
                             <SelectItem value="all">Tüm Ürünler</SelectItem>
-                            {products.map(p => (
-                                <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
-                            ))}
+                            {products
+                                .filter(p => sales.some(s => s.productId === p.id))
+                                .map(p => (
+                                    <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
+                                ))}
                         </SelectContent>
                     </Select>
 
                     {/* Period Filter */}
                     <Select value={periodFilter} onValueChange={setPeriodFilter}>
                         <SelectTrigger className="w-full sm:w-[150px] bg-white border-slate-200 text-slate-900">
-                            <SelectValue placeholder="Dönem" />
+                            <SelectValue placeholder="Tarih" />
                         </SelectTrigger>
                         <SelectContent className="bg-white border-slate-200 text-slate-900">
                             <SelectItem value="week">Son 1 Hafta</SelectItem>
                             <SelectItem value="month">Son 1 Ay</SelectItem>
                             <SelectItem value="year">Bu Yıl</SelectItem>
                             <SelectItem value="last_year">Geçen Yıl</SelectItem>
-                            <SelectItem value="all">Tümü</SelectItem>
+                            <SelectItem value="all">Tüm Zamanlar</SelectItem>
                         </SelectContent>
                     </Select>
 

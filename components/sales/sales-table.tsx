@@ -44,6 +44,7 @@ export function SalesTable({ sales, onEdit }: SalesTableProps) {
                         <TableHead className="text-left font-bold text-slate-700 border-r border-slate-200 whitespace-nowrap px-4 py-3">Adet</TableHead>
                         <TableHead className="text-left font-bold text-slate-700 border-r border-slate-200 whitespace-nowrap px-4 py-3">Tutar</TableHead>
                         <TableHead className="text-left font-bold text-slate-700 border-r border-slate-200 whitespace-nowrap px-4 py-3">Kesintiler</TableHead>
+                        <TableHead className="text-left font-bold text-slate-700 border-r border-slate-200 whitespace-nowrap px-4 py-3">Kesinti Oranı</TableHead>
                         <TableHead className="text-left font-bold text-slate-700 border-r border-slate-200 whitespace-nowrap px-4 py-3">Maliyet</TableHead>
                         <TableHead className="text-left font-bold text-slate-700 border-r border-slate-200 whitespace-nowrap px-4 py-3">Kargo ($)</TableHead>
                         <TableHead className="text-left font-bold text-slate-700 border-r border-slate-200 whitespace-nowrap px-4 py-3">İndirim (%)</TableHead>
@@ -55,79 +56,94 @@ export function SalesTable({ sales, onEdit }: SalesTableProps) {
                 <TableBody>
                     {sales.length === 0 ? (
                         <TableRow>
-                            <TableCell colSpan={13} className="text-center py-8 text-slate-500 border-r border-slate-200 last:border-r-0">
+                            <TableCell colSpan={14} className="text-center py-8 text-slate-500 border-r border-slate-200 last:border-r-0">
                                 Bu dönem için satış bulunamadı.
                             </TableCell>
                         </TableRow>
                     ) : (
-                        sales.map((sale) => (
-                            <TableRow key={sale.id} className="border-b border-slate-200 hover:bg-slate-50">
-                                <TableCell className="whitespace-nowrap text-sm text-slate-700 font-normal border-r border-slate-200 px-4 py-3">
-                                    {format(new Date(sale.date), "d MMM yyyy", { locale: tr })}
-                                </TableCell>
-                                <TableCell className="text-sm text-slate-700 font-normal border-r border-slate-200 px-4 py-3">
-                                    {sale.orderNo}
-                                </TableCell>
-                                <TableCell className="text-sm text-slate-700 font-normal border-r border-slate-200 px-4 py-3">
-                                    {sale.store === "RADIANT_JEWELRY_GIFT" ? "Radiant Jewelry Gift" :
-                                        sale.store === "THE_TRENDY_OUTFITTERS" ? "The Trendy Outfitters" :
-                                            "Lamiaferis"}
-                                </TableCell>
-                                <TableCell className="text-sm text-slate-700 font-normal border-r border-slate-200 px-4 py-3 max-w-[200px] truncate" title={sale.product?.name}>
-                                    {sale.product?.name}
-                                </TableCell>
-                                <TableCell className="text-sm text-slate-700 font-normal border-r border-slate-200 px-4 py-3">
-                                    {sale.quantity}
-                                </TableCell>
-                                <TableCell className="text-sm text-slate-700 font-normal border-r border-slate-200 px-4 py-3">
-                                    ${sale.buyerPaid.toFixed(2)}
-                                </TableCell>
-                                <TableCell className="text-sm text-slate-700 font-normal border-r border-slate-200 px-4 py-3">
-                                    -${sale.feesCredits.toFixed(2)}
-                                </TableCell>
-                                <TableCell className="text-sm text-slate-700 font-normal border-r border-slate-200 px-4 py-3">
-                                    -${sale.productCost.toFixed(2)}
-                                </TableCell>
-                                <TableCell className="text-sm text-slate-700 font-normal border-r border-slate-200 px-4 py-3">
-                                    -${sale.shippingCost.toFixed(2)}
-                                </TableCell>
-                                <TableCell className="text-sm text-slate-700 font-normal border-r border-slate-200 px-4 py-3">
-                                    {sale.discountRate ? `%${sale.discountRate}` : "-"}
-                                </TableCell>
-                                <TableCell className={cn(
-                                    "text-sm font-bold border-r border-slate-200 px-4 py-3",
-                                    sale.profitUSD >= 0 ? "text-green-600" : "text-red-600"
-                                )}>
-                                    ${sale.profitUSD.toFixed(2)}
-                                </TableCell>
-                                <TableCell className={cn(
-                                    "text-sm font-bold border-r border-slate-200 px-4 py-3",
-                                    sale.profitTL >= 0 ? "text-green-600" : "text-red-600"
-                                )}>
-                                    ₺{sale.profitTL.toFixed(2)}
-                                </TableCell>
-                                <TableCell className="px-4 py-3">
-                                    <div className="flex items-center gap-2">
-                                        <Button
-                                            variant="ghost"
-                                            size="icon"
-                                            onClick={() => onEdit(sale)}
-                                            className="h-8 w-8 text-slate-500 hover:text-blue-600 hover:bg-blue-50"
-                                        >
-                                            <Pencil className="h-4 w-4" />
-                                        </Button>
-                                        <Button
-                                            variant="ghost"
-                                            size="icon"
-                                            onClick={() => handleDelete(sale.id)}
-                                            className="h-8 w-8 text-slate-500 hover:text-red-600 hover:bg-red-50"
-                                        >
-                                            <Trash2 className="h-4 w-4" />
-                                        </Button>
-                                    </div>
-                                </TableCell>
-                            </TableRow>
-                        ))
+                        sales.map((sale) => {
+                            // Net Buyer Paid = BuyerPaid - Tax
+                            const netBuyerPaid = sale.buyerPaid - (sale.tax || 0)
+                            // Actual Fees = Fees - Tax -- to match profit calculation logic
+                            const actualFees = sale.feesCredits - (sale.tax || 0)
+
+                            // Deduction Rate = (Actual Fees / Net Buyer Paid) * 100
+                            const deductionRate = netBuyerPaid > 0
+                                ? ((actualFees / netBuyerPaid) * 100).toFixed(2)
+                                : "0.00"
+
+                            return (
+                                <TableRow key={sale.id} className="border-b border-slate-200 hover:bg-slate-50">
+                                    <TableCell className="whitespace-nowrap text-sm text-slate-700 font-normal border-r border-slate-200 px-4 py-3">
+                                        {format(new Date(sale.date), "d MMM yyyy", { locale: tr })}
+                                    </TableCell>
+                                    <TableCell className="text-sm text-slate-700 font-normal border-r border-slate-200 px-4 py-3">
+                                        {sale.orderNo}
+                                    </TableCell>
+                                    <TableCell className="text-sm text-slate-700 font-normal border-r border-slate-200 px-4 py-3">
+                                        {sale.store === "RADIANT_JEWELRY_GIFT" ? "Radiant Jewelry Gift" :
+                                            sale.store === "THE_TRENDY_OUTFITTERS" ? "The Trendy Outfitters" :
+                                                "Lamiaferis"}
+                                    </TableCell>
+                                    <TableCell className="text-sm text-slate-700 font-normal border-r border-slate-200 px-4 py-3 max-w-[200px] truncate" title={sale.product?.name}>
+                                        {sale.product?.name}
+                                    </TableCell>
+                                    <TableCell className="text-sm text-slate-700 font-normal border-r border-slate-200 px-4 py-3">
+                                        {sale.quantity}
+                                    </TableCell>
+                                    <TableCell className="text-sm text-slate-700 font-normal border-r border-slate-200 px-4 py-3">
+                                        ${netBuyerPaid.toFixed(2)}
+                                    </TableCell>
+                                    <TableCell className="text-sm text-slate-700 font-normal border-r border-slate-200 px-4 py-3">
+                                        -${actualFees.toFixed(2)}
+                                    </TableCell>
+                                    <TableCell className="text-sm text-slate-700 font-normal border-r border-slate-200 px-4 py-3">
+                                        %{deductionRate}
+                                    </TableCell>
+                                    <TableCell className="text-sm text-slate-700 font-normal border-r border-slate-200 px-4 py-3">
+                                        -${sale.productCost.toFixed(2)}
+                                    </TableCell>
+                                    <TableCell className="text-sm text-slate-700 font-normal border-r border-slate-200 px-4 py-3">
+                                        -${sale.shippingCost.toFixed(2)}
+                                    </TableCell>
+                                    <TableCell className="text-sm text-slate-700 font-normal border-r border-slate-200 px-4 py-3">
+                                        {sale.discountRate ? `%${sale.discountRate}` : "-"}
+                                    </TableCell>
+                                    <TableCell className={cn(
+                                        "text-sm font-bold border-r border-slate-200 px-4 py-3",
+                                        sale.profitUSD >= 0 ? "text-green-600" : "text-red-600"
+                                    )}>
+                                        ${sale.profitUSD.toFixed(2)}
+                                    </TableCell>
+                                    <TableCell className={cn(
+                                        "text-sm font-bold border-r border-slate-200 px-4 py-3",
+                                        sale.profitTL >= 0 ? "text-green-600" : "text-red-600"
+                                    )}>
+                                        ₺{sale.profitTL.toFixed(2)}
+                                    </TableCell>
+                                    <TableCell className="px-4 py-3">
+                                        <div className="flex items-center gap-2">
+                                            <Button
+                                                variant="ghost"
+                                                size="icon"
+                                                onClick={() => onEdit(sale)}
+                                                className="h-8 w-8 text-slate-500 hover:text-blue-600 hover:bg-blue-50"
+                                            >
+                                                <Pencil className="h-4 w-4" />
+                                            </Button>
+                                            <Button
+                                                variant="ghost"
+                                                size="icon"
+                                                onClick={() => handleDelete(sale.id)}
+                                                className="h-8 w-8 text-slate-500 hover:text-red-600 hover:bg-red-50"
+                                            >
+                                                <Trash2 className="h-4 w-4" />
+                                            </Button>
+                                        </div>
+                                    </TableCell>
+                                </TableRow>
+                            )
+                        })
                     )}
                 </TableBody>
             </Table>

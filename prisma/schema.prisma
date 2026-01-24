@@ -37,6 +37,7 @@ model Sale {
   orderNo        String
   buyerPaid      Float // USD
   feesCredits    Float // USD
+  tax            Float    @default(0) // USD
   totalSalePriceTL Float
   productCost    Float // USD
   shippingCost   Float // USD
@@ -83,9 +84,12 @@ model Message {
 
 model ExpenseCategory {
   id        String   @id @default(cuid())
-  name      String   @unique
+  name      String
+  type      String   @default("ETSY") // "ETSY" or "LAMIAFERIS"
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+
+  @@unique([name, type])
 }
 
 model AppConfig {

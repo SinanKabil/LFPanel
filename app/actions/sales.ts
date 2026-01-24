@@ -32,6 +32,7 @@ export type SaleFormData = {
     orderNo: string
     buyerPaid: number
     feesCredits: number
+    tax: number
     totalSalePriceTL: number
     productCost: number
     shippingCost: number
@@ -40,14 +41,32 @@ export type SaleFormData = {
 
 function calculateProfit(data: SaleFormData) {
     // Logic: 
-    // Kar USD = (Buyer Paid - Fees Credits) - Ürün Maliyeti - Kargo Maliyeti
-    // Exchange Rate = Toplam Satış Fiyatı TL / Buyer Paid
-    // Kar TL = Kar USD * Exchange Rate
+    // Kar USD = (Buyer Paid - Vergi) - Fees - Ürün Maliyeti - Kargo Maliyeti
+    // Exchange Rate = Toplam Satış Fiyatı TL / (Buyer Paid - Vergi)  <-- Should probably be based on Net Revenue?
+    // Wait, Exchange Rate usually implies converting the Gross amount. 
+    // "Total Sale Price TL" usually is the TL equivalent of the Buyer Paid (Gross).
+    // If user inputs Buyer Paid (Gross) in USD and Total Sale Price TL (Gross) in TL, exchange rate is Gross/Gross.
+    // If user inputs Net in one and Gross in other, it breaks.
+    // User Instructions: "Vergi alanına girdiğim dolar tutarı Müşteri ödemesi ve kesintiler tutarlarından çıkarılarak tabloya yansımalı."
+    // This is display logic. For PnL: "Hesaplama vergi tutarı çıkarıldıktan sonra yapılmalı."
+    // Profit = (BuyerPaid - Tax) - Fees - ProductCost - ShippingCost.
 
-    const profitUSD = (data.buyerPaid - data.feesCredits) - data.productCost - data.shippingCost
+    // Adjusted Profit Calculation based on User Request:
+    // Profit = (BuyerPaid - Tax) - (Fees - Tax) - Costs 
+    // This implies that the 'Fees' input includes the tax amount, and 'BuyerPaid' also includes it.
+
+    // Net Revenue = BuyerPaid - Tax
+    const netRevenue = data.buyerPaid - (data.tax || 0)
+
+    // Actual Fees = FeesCredits - Tax
+    // If tax is included in the fee amount shown on Etsy/Platform, we remove it to get the real fee expense.
+    const actualFees = data.feesCredits - (data.tax || 0)
+
+    const profitUSD = netRevenue - actualFees - data.productCost - data.shippingCost
 
     // Avoid division by zero
     let exchangeRate = 0
+    // Use BuyerPaid (Gross) for rate calculation as it represents the transaction volume
     if (data.buyerPaid > 0) {
         exchangeRate = data.totalSalePriceTL / data.buyerPaid
     }
@@ -71,6 +90,7 @@ export async function createSale(data: SaleFormData) {
                 orderNo: data.orderNo,
                 buyerPaid: data.buyerPaid,
                 feesCredits: data.feesCredits,
+                tax: data.tax,
                 totalSalePriceTL: data.totalSalePriceTL,
                 productCost: data.productCost,
                 shippingCost: data.shippingCost,
@@ -89,7 +109,21 @@ export async function createSale(data: SaleFormData) {
 
 export async function updateSale(id: string, data: SaleFormData) {
     try {
-        const { profitUSD, profitTL } = calculateProfit(data)
+        console.log("Updating Sale:", id, data) // Log incoming data
+
+        // Ensure numbers
+        const safeData = {
+            ...data,
+            buyerPaid: Number(data.buyerPaid) || 0,
+            feesCredits: Number(data.feesCredits) || 0,
+            tax: Number(data.tax) || 0,
+            productCost: Number(data.productCost) || 0,
+            shippingCost: Number(data.shippingCost) || 0,
+            totalSalePriceTL: Number(data.totalSalePriceTL) || 0,
+        }
+
+        const { profitUSD, profitTL } = calculateProfit(safeData)
+        console.log("Calculated Profit:", profitUSD, profitTL)
 
         await prisma.sale.update({
             where: { id },
@@ -100,11 +134,12 @@ export async function updateSale(id: string, data: SaleFormData) {
                 quantity: data.quantity,
                 date: data.date,
                 orderNo: data.orderNo,
-                buyerPaid: data.buyerPaid,
-                feesCredits: data.feesCredits,
-                totalSalePriceTL: data.totalSalePriceTL,
-                productCost: data.productCost,
-                shippingCost: data.shippingCost,
+                buyerPaid: safeData.buyerPaid,
+                feesCredits: safeData.feesCredits,
+                tax: safeData.tax,
+                totalSalePriceTL: safeData.totalSalePriceTL,
+                productCost: safeData.productCost,
+                shippingCost: safeData.shippingCost,
                 profitUSD,
                 profitTL,
                 discountRate: data.discountRate,

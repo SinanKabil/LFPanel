@@ -12,7 +12,13 @@ export default async function ExpensesPage({ params }: { params: Promise<{ brand
     }
 
     const normalizedBrand = brand.toLowerCase()
-    const store = brandMap[normalizedBrand]
+
+    // Allow "etsy" as a generic brand for the main panel
+    let store: Store | "etsy" | undefined = brandMap[normalizedBrand]
+
+    if (normalizedBrand === "etsy") {
+        store = "etsy"
+    }
 
     if (!store) {
         return (
@@ -23,9 +29,12 @@ export default async function ExpensesPage({ params }: { params: Promise<{ brand
         )
     }
 
+    // Determine category type based on store
+    const categoryType = store === Store.LAMIAFERIS ? "LAMIAFERIS" : "ETSY"
+
     const [expensesResult, categoriesResult] = await Promise.all([
         getExpenses(store),
-        getExpenseCategories()
+        getExpenseCategories(categoryType)
     ])
 
     // Serialize dates to prevent "Application Error" (Date objects cannot be passed to Client Components in some cases)

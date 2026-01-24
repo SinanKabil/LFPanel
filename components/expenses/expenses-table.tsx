@@ -25,7 +25,7 @@ import {
 } from "@/components/ui/table"
 import { Button } from "@/components/ui/button"
 import { ActionDialog } from "./action-dialog"
-import { ExpenseSheet } from "./expense-sheet"
+import { ExpensesSheet } from "./expenses-sheet"
 
 type ExpensesTableProps = {
     expenses: any[]
@@ -141,10 +141,9 @@ export function ExpensesTable({ expenses, categories, store, showAll = false }: 
                 />
             )}
 
-            <ExpenseSheet
+            <ExpensesSheet
                 open={sheetOpen}
                 onOpenChange={setSheetOpen}
-                categories={categories}
                 store={store}
                 initialData={editingExpense}
             />

@@ -12,7 +12,7 @@ import {
 } from "@/components/ui/dialog"
 import { ExpensesTable } from "./expenses-table"
 
-import { ExpenseSheet } from "./expense-sheet"
+import { ExpensesSheet } from "./expenses-sheet"
 // import { Store } from "@prisma/client" - Removed to prevent bundling issues
 
 type ExpensesViewProps = {
@@ -65,10 +65,9 @@ export default function ExpensesView({ expenses, categories, store }: ExpensesVi
 
             <ExpensesTable expenses={expenses} categories={categories} store={store} />
 
-            <ExpenseSheet
+            <ExpensesSheet
                 open={isCreateOpen}
                 onOpenChange={setIsCreateOpen}
-                categories={categories}
                 store={store}
                 initialData={null}
             />

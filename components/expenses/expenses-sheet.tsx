@@ -54,9 +54,10 @@ interface ExpensesSheetProps {
     open: boolean
     onOpenChange: (open: boolean) => void
     initialData?: ExpenseFormValues | null
+    store?: string | Store
 }
 
-export function ExpensesSheet({ open, onOpenChange, initialData }: ExpensesSheetProps) {
+export function ExpensesSheet({ open, onOpenChange, initialData, store }: ExpensesSheetProps) {
     const [loading, setLoading] = useState(false)
     const [categories, setCategories] = useState<{ id: string, name: string }[]>([])
     const [newCategoryName, setNewCategoryName] = useState("")
@@ -67,10 +68,15 @@ export function ExpensesSheet({ open, onOpenChange, initialData }: ExpensesSheet
     const [editingCategoryId, setEditingCategoryId] = useState<string | null>(null)
     const [editCategoryName, setEditCategoryName] = useState("")
 
+    const defaultStore = store === "etsy" || !store ? "RADIANT_JEWELRY_GIFT" : store as Store
+
+    // Determine category type based on store
+    const categoryType = defaultStore === "LAMIAFERIS" ? "LAMIAFERIS" : "ETSY"
+
     const [formData, setFormData] = useState<ExpenseFormValues>({
         date: new Date(),
         category: "",
-        store: "RADIANT_JEWELRY_GIFT",
+        store: defaultStore,
         amountTL: "",
         amountUSD: "",
         exchangeRate: "",
@@ -80,13 +86,13 @@ export function ExpensesSheet({ open, onOpenChange, initialData }: ExpensesSheet
     // Fetch categories on mount and when sheet opens
     useEffect(() => {
         if (open) {
-            getExpenseCategories().then(res => {
+            getExpenseCategories(categoryType).then(res => {
                 if (res.success && res.data) {
                     setCategories(res.data)
                 }
             })
         }
-    }, [open])
+    }, [open, categoryType])
 
     useEffect(() => {
         if (open) {
@@ -102,7 +108,7 @@ export function ExpensesSheet({ open, onOpenChange, initialData }: ExpensesSheet
                 setFormData({
                     date: new Date(),
                     category: "",
-                    store: "RADIANT_JEWELRY_GIFT",
+                    store: defaultStore,
                     amountTL: "",
                     amountUSD: "",
                     exchangeRate: "",
@@ -110,20 +116,28 @@ export function ExpensesSheet({ open, onOpenChange, initialData }: ExpensesSheet
                 })
             }
         }
-    }, [open, initialData])
+    }, [open, initialData, defaultStore])
 
-    // Auto-calculate exchange rate
+    // Auto-calculate exchange rate if both amounts are present
+    // Or if one is present and rate is present, calculate the other? 
+    // User requirement: "Tutar tl ve dolar olarak girilmeli. İkisinden biri zorunlu olmalı. İkisi girildiğinde kur hesaplanmalı."
     useEffect(() => {
         const tl = Number(formData.amountTL)
         const usd = Number(formData.amountUSD)
+
+        // If both present, calc rate (TL / USD)
         if (tl > 0 && usd > 0) {
-            setFormData(prev => ({ ...prev, exchangeRate: tl / usd }))
+            const calculatedRate = tl / usd
+            // Update rate only if it's different to avoid loops (though with dependency array it's fine)
+            // But wait, if user updates rate, should we update amount? 
+            // The requirement says: "İkisi girildiğinde kur hesaplanmalı." -> Implies Rate is output.
+            setFormData(prev => ({ ...prev, exchangeRate: parseFloat(calculatedRate.toFixed(4)) }))
         }
     }, [formData.amountTL, formData.amountUSD])
 
     const handleAddCategory = async () => {
         if (!newCategoryName.trim()) return
-        const res = await createExpenseCategory(newCategoryName)
+        const res = await createExpenseCategory(newCategoryName, categoryType)
         if (res.success && res.data) {
             setCategories(prev => [...prev, res.data!].sort((a, b) => a.name.localeCompare(b.name)))
             setFormData(prev => ({ ...prev, category: res.data!.name }))
@@ -139,7 +153,6 @@ export function ExpensesSheet({ open, onOpenChange, initialData }: ExpensesSheet
         if (res.success) {
             setCategories(prev => prev.map(c => c.id === id ? { ...c, name: editCategoryName } : c))
             setEditingCategoryId(null)
-            // Update selected category if it was this one
             if (formData.category === categories.find(c => c.id === id)?.name) {
                 setFormData(prev => ({ ...prev, category: editCategoryName }))
             }
@@ -161,7 +174,7 @@ export function ExpensesSheet({ open, onOpenChange, initialData }: ExpensesSheet
         e.preventDefault()
         setLoading(true)
 
-        // Validation: At least one amount
+        // Validation done in backend too, but good for UI feedback
         if (!formData.amountTL && !formData.amountUSD) {
             alert("Lütfen en az bir tutar (TL veya USD) giriniz.")
             setLoading(false)
@@ -170,9 +183,9 @@ export function ExpensesSheet({ open, onOpenChange, initialData }: ExpensesSheet
 
         const payload: any = {
             ...formData,
-            amountTL: formData.amountTL === "" ? 0 : Number(formData.amountTL),
-            amountUSD: formData.amountUSD === "" ? 0 : Number(formData.amountUSD),
-            exchangeRate: formData.exchangeRate === "" ? 0 : Number(formData.exchangeRate)
+            amountTL: formData.amountTL === "" ? null : Number(formData.amountTL),
+            amountUSD: formData.amountUSD === "" ? null : Number(formData.amountUSD),
+            exchangeRate: formData.exchangeRate === "" ? null : Number(formData.exchangeRate)
         }
 
         try {
@@ -182,6 +195,7 @@ export function ExpensesSheet({ open, onOpenChange, initialData }: ExpensesSheet
                 await createExpense(payload)
             }
             onOpenChange(false)
+            // Ideally use router.refresh() but reload is safer for ensuring everything updates
             window.location.reload()
         } catch (error) {
             alert("Bir hata oluştu")
@@ -223,7 +237,7 @@ export function ExpensesSheet({ open, onOpenChange, initialData }: ExpensesSheet
                                     onSelect={(d) => {
                                         if (d) {
                                             setFormData({ ...formData, date: d })
-                                            setIsCalendarOpen(false)
+                                            setIsCalendarOpen(false) // Fix: Close calendar on select
                                         }
                                     }}
                                     className="text-slate-900 bg-white"
@@ -238,14 +252,20 @@ export function ExpensesSheet({ open, onOpenChange, initialData }: ExpensesSheet
                         <Select
                             value={formData.store}
                             onValueChange={(value) => setFormData({ ...formData, store: value as Store })}
+                            disabled={categoryType === "LAMIAFERIS"} // Lock if Lamiaferis since it's the only option
                         >
                             <SelectTrigger className="w-full bg-white border-slate-200 text-slate-900">
                                 <SelectValue placeholder="Mağaza Seç" />
                             </SelectTrigger>
                             <SelectContent className="bg-white border-slate-200 text-slate-900">
-                                <SelectItem value="RADIANT_JEWELRY_GIFT">Radiant Jewelry Gift</SelectItem>
-                                <SelectItem value="THE_TRENDY_OUTFITTERS">The Trendy Outfitters</SelectItem>
-                                <SelectItem value="LAMIAFERIS">Lamiaferis</SelectItem>
+                                {categoryType === "ETSY" ? (
+                                    <>
+                                        <SelectItem value="RADIANT_JEWELRY_GIFT">Radiant Jewelry Gift</SelectItem>
+                                        <SelectItem value="THE_TRENDY_OUTFITTERS">The Trendy Outfitters</SelectItem>
+                                    </>
+                                ) : (
+                                    <SelectItem value="LAMIAFERIS">Lamiaferis</SelectItem>
+                                )}
                             </SelectContent>
                         </Select>
                     </div>
@@ -274,7 +294,7 @@ export function ExpensesSheet({ open, onOpenChange, initialData }: ExpensesSheet
                                 </PopoverTrigger>
                                 <PopoverContent className="w-80 bg-white border-slate-200 p-4 shadow-xl" align="end">
                                     <div className="space-y-4">
-                                        <h4 className="font-semibold text-slate-900 border-b pb-2">Kategori Yönetimi</h4>
+                                        <h4 className="font-semibold text-slate-900 border-b pb-2">Kategori Yönetimi ({categoryType})</h4>
 
                                         <div className="space-y-2 max-h-[200px] overflow-y-auto pr-1">
                                             {categories.map(cat => (
@@ -334,7 +354,7 @@ export function ExpensesSheet({ open, onOpenChange, initialData }: ExpensesSheet
                         </div>
                     </div>
 
-                    <div className="grid grid-cols-2 gap-4">
+                    <div className={cn("gap-4", categoryType === "LAMIAFERIS" ? "" : "grid grid-cols-2")}>
                         <div className="space-y-2">
                             <Label>Tutar (TL)</Label>
                             <Input
@@ -346,31 +366,35 @@ export function ExpensesSheet({ open, onOpenChange, initialData }: ExpensesSheet
                                 className="bg-white border-slate-200 text-slate-900"
                             />
                         </div>
-                        <div className="space-y-2">
-                            <Label>Tutar ($)</Label>
-                            <Input
-                                type="number"
-                                step="0.01"
-                                placeholder="0.00"
-                                value={formData.amountUSD}
-                                onChange={(e) => setFormData({ ...formData, amountUSD: e.target.value === "" ? "" : parseFloat(e.target.value) })}
-                                className="bg-white border-slate-200 text-slate-900"
-                            />
-                        </div>
+                        {categoryType !== "LAMIAFERIS" && (
+                            <div className="space-y-2">
+                                <Label>Tutar ($)</Label>
+                                <Input
+                                    type="number"
+                                    step="0.01"
+                                    placeholder="0.00"
+                                    value={formData.amountUSD}
+                                    onChange={(e) => setFormData({ ...formData, amountUSD: e.target.value === "" ? "" : parseFloat(e.target.value) })}
+                                    className="bg-white border-slate-200 text-slate-900"
+                                />
+                            </div>
+                        )}
                     </div>
 
-                    <div className="space-y-2">
-                        <Label>Hesaplanan Kur (TL/USD)</Label>
-                        <Input
-                            type="number"
-                            step="0.0001"
-                            placeholder="Otomatik hesaplanır"
-                            value={formData.exchangeRate}
-                            readOnly
-                            disabled
-                            className="bg-slate-50 border-slate-200 text-slate-500 cursor-not-allowed"
-                        />
-                    </div>
+                    {categoryType !== "LAMIAFERIS" && (
+                        <div className="space-y-2">
+                            <Label>Hesaplanan Kur (TL/USD)</Label>
+                            <Input
+                                type="number"
+                                step="0.0001"
+                                placeholder="Otomatik hesaplanır"
+                                value={formData.exchangeRate}
+                                readOnly
+                                disabled
+                                className="bg-slate-50 border-slate-200 text-slate-500 cursor-not-allowed"
+                            />
+                        </div>
+                    )}
 
                     <div className="space-y-2">
                         <Label>Açıklama (İsteğe Bağlı)</Label>
