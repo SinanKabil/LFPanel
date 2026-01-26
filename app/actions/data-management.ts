@@ -74,6 +74,7 @@ export async function exportData(type: "pos" | "cash" | "expense" | "etsy_sales"
             }))
         } else if (type === "cash") {
             const transactions = await prisma.cashTransaction.findMany({
+                include: { store: true },
                 orderBy: { date: "desc" }
             })
             data = transactions.map(t => ({
@@ -191,7 +192,7 @@ export async function importData(formData: FormData, type: "pos" | "cash" | "exp
         const wb = XLSX.read(buffer, { type: "buffer" })
         const ws = wb.Sheets[wb.SheetNames[0]]
         // Use cellDates: true to let XLSX parse dates automatically where possible
-        const jsonData = XLSX.utils.sheet_to_json(ws, { cellDates: true })
+        const jsonData = XLSX.utils.sheet_to_json(ws, { cellDates: true } as any)
 
         if (jsonData.length === 0) return { success: false, error: "Dosya boş veya format hatalı." }
 
