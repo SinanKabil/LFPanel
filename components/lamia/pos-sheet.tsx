@@ -84,8 +84,9 @@ export function PosSheet({ open, onOpenChange, initialData }: { open: boolean, o
     // Calculated Preview
     const selectedRate = rates.find(r => r.id === formData.commissionRateId)
     const amountVal = Number(formData.amount) || 0
-    const commissionVal = (amountVal * (selectedRate?.rate || 0)) / 100
-    const netVal = amountVal - commissionVal
+    const rateVal = selectedRate?.rate || 0
+    const netVal = amountVal / (1 + rateVal / 100)
+    const commissionVal = amountVal - netVal
 
     // Load Data
     useEffect(() => {

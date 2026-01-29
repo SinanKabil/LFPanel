@@ -277,9 +277,8 @@ export async function importData(formData: FormData, type: "pos" | "cash" | "exp
                 }
 
                 // 3. Calculate Net
-                // Net = Amount - (Amount * Rate / 100)
-                const commissionAmount = amount * (rateVal / 100)
-                const net = amount - commissionAmount
+                // Net = Amount / (1 + Rate / 100)
+                const net = amount / (1 + rateVal / 100)
 
                 transactionsToCreate.push({
                     date,

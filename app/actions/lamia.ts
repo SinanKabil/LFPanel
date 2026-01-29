@@ -141,10 +141,10 @@ export async function createPosTransaction(data: {
             return { success: false, error: "Commission rate not found" }
         }
 
-        // Calculate NET: Amount - (Amount * Rate / 100)
+        // Calculate NET: Amount / (1 + Rate / 100)
         // User enters rate as 3.0825 which means 3.0825%
-        const commissionAmount = (data.amount * rate.rate) / 100;
-        const net = data.amount - commissionAmount;
+        const net = data.amount / (1 + rate.rate / 100);
+        const commissionAmount = data.amount - net;
 
         const transaction = await prisma.posTransaction.create({
             data: {
@@ -181,8 +181,8 @@ export async function updatePosTransaction(id: string, data: {
             return { success: false, error: "Commission rate not found" }
         }
 
-        const commissionAmount = (data.amount * rate.rate) / 100;
-        const net = data.amount - commissionAmount;
+        const net = data.amount / (1 + rate.rate / 100);
+        const commissionAmount = data.amount - net;
 
         const transaction = await prisma.posTransaction.update({
             where: { id },
