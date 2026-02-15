@@ -9,12 +9,12 @@ import { unstable_cache } from "next/cache"
 export interface AnalysisData {
     kpis: {
         totalSalesCount: number
-        totalSalesRevenueTL: number // New
-        totalFeesTL: number // New
-        totalFeesUSD: number // New
+        totalSalesRevenueTL: number
+        totalFeesTL: number
+        totalFeesUSD: number
         totalProfitUSD: number
-        totalProfitTL: number // Net Profit
-        totalGrossProfitTL: number // Gross Profit from Sales
+        totalProfitTL: number
+        totalGrossProfitTL: number
         totalCost: number
         totalProductCost: number
         totalShippingCost: number
@@ -26,6 +26,8 @@ export interface AnalysisData {
         rexvenExpenseTL: number
         etsyAdsExpense: number
         etsyAdsExpenseTL: number
+        listingFeesExpense: number // New
+        etsyPlusExpense: number // New
     }
     // For Trend Chart (Revenue, Profit, Expense over time)
     trendStats: {
@@ -154,27 +156,26 @@ async function getAnalysisLogic(brand: string, store?: string, dateRange?: DateR
         const tax = Number(s.tax) || 0
         return sum + (fees - tax)
     }, 0)
-    const totalCost = totalProductCost + totalShippingCost + totalFeesUSD
 
     const shipEntegra = calcExpense("ShipEntegra")
     const prinwork = calcExpense("Prinwork")
     const rexven = calcExpense("Rexven")
+    const etsyPlus = calcExpense("Etsy Plus")
+    const listingFees = calcExpense("Listing Fee")
 
     // Calculate Etsy Ads Expenses
     const etsyAdsExpenses = expenses.filter(e => checkCategory(e.category, "Etsy Ads"))
-    console.log("DEBUG: Etsy Ads Expenses Count:", etsyAdsExpenses.length)
-    if (etsyAdsExpenses.length > 0) {
-        console.log("DEBUG: Sample Etsy Ad:", etsyAdsExpenses[0])
-    }
-
     const etsyAdsStats = {
         usd: etsyAdsExpenses.reduce((sum, e) => sum + (e.amountUSD || 0), 0),
         tl: etsyAdsExpenses.reduce((sum, e) => {
             const amount = Number(e.amountTL)
-            console.log(`DEBUG: Etsy Ad ${e.id} - TL: ${e.amountTL} -> ${amount}`)
             return sum + (isNaN(amount) ? 0 : amount)
         }, 0)
     }
+
+    // Update Total Cost formula
+    // Product Cost + Shipping Cost + Fees + Etsy Ads + Etsy Plus + Listing Fees
+    const totalCost = totalProductCost + totalShippingCost + totalFeesUSD + etsyAdsStats.usd + etsyPlus.usd + listingFees.usd
 
     // Update Total Profit TL = Sales Profit TL - Etsy Ads TL
     const totalProfitTL = salesProfitTL - etsyAdsStats.tl
@@ -184,10 +185,10 @@ async function getAnalysisLogic(brand: string, store?: string, dateRange?: DateR
         totalSalesCount,
         totalSalesRevenueTL,
         totalFeesTL,
-        totalFeesUSD, // New: Total Fees (USD) - Tax
+        totalFeesUSD,
         totalProfitUSD,
-        totalProfitTL, // Net Profit (after ads)
-        totalGrossProfitTL: salesProfitTL, // New: Gross Profit (before ads)
+        totalProfitTL,
+        totalGrossProfitTL: salesProfitTL,
         totalCost,
         totalProductCost,
         totalShippingCost,
@@ -198,7 +199,9 @@ async function getAnalysisLogic(brand: string, store?: string, dateRange?: DateR
         rexvenExpense: rexven.usd,
         rexvenExpenseTL: rexven.tl,
         etsyAdsExpense: etsyAdsStats.usd,
-        etsyAdsExpenseTL: etsyAdsStats.tl
+        etsyAdsExpenseTL: etsyAdsStats.tl,
+        listingFeesExpense: listingFees.usd,
+        etsyPlusExpense: etsyPlus.usd
     }
 
 
@@ -397,7 +400,7 @@ export async function getAnalysisData(brand: string, store?: string, dateRange?:
     try {
         const getCached = unstable_cache(
             async (b, s, from, to) => getAnalysisLogic(b, s, { from: new Date(from), to: new Date(to) }),
-            ['analysis-data-v8'], // Cache busted
+            ['analysis-data-v9'], // Cache busted
             { tags: ['analysis'] }
         )
 

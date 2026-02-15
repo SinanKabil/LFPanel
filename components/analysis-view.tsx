@@ -134,7 +134,7 @@ export default function AnalysisView({ data: initialData }: AnalysisViewProps) {
                 <div className="bg-white rounded-xl p-6 border border-slate-100 border-l-4 border-l-red-500 shadow-sm hover:shadow-md transition-all flex items-center justify-between">
                     <div>
                         <p className="text-sm font-medium text-slate-500">Toplam Gider</p>
-                        <p className="text-3xl font-bold text-slate-900 mt-2">{fmt(totalExpense, "$")}</p>
+                        <p className="text-3xl font-bold text-slate-900 mt-2">{fmt(kpis.totalCost, "$")}</p>
                     </div>
                     <div className="p-3 bg-red-50 rounded-full">
                         <TrendingDown className="h-8 w-8 text-red-600 opacity-90" />
@@ -163,7 +163,7 @@ export default function AnalysisView({ data: initialData }: AnalysisViewProps) {
                     <Layers className="h-3.5 w-3.5" />
                     Detaylı Metrikler
                 </h3>
-                <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-8 gap-4">
+                <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-[repeat(9,minmax(0,1fr))] gap-4">
                     <DetailKpiCard title="Satış Adedi" value={kpis.totalSalesCount} formatValue={(v) => v.toLocaleString('tr-TR', { maximumFractionDigits: 0 })} type="blue" />
 
                     <DetailKpiCard title="Net Kar ($)" value={kpis.totalProfitUSD} formatValue={(v) => fmt(v, "$")} type={kpis.totalProfitUSD >= 0 ? "emerald" : "red"} />
@@ -183,6 +183,7 @@ export default function AnalysisView({ data: initialData }: AnalysisViewProps) {
                     <DetailKpiCard title="Kesintiler ($)" value={kpis.totalFeesUSD} formatValue={(v) => fmt(v, "$")} type="red" />
                     <DetailKpiCard title="Ürün Maliyeti" value={kpis.totalProductCost} formatValue={(v) => fmt(v, "$")} type="red" />
                     <DetailKpiCard title="Kargo Maliyeti" value={kpis.totalShippingCost} formatValue={(v) => fmt(v, "$")} type="red" />
+                    <DetailKpiCard title="Listing Fees" value={kpis.listingFeesExpense} formatValue={(v) => fmt(v, "$")} type="red" />
                     <DetailKpiCard title="Etsy Ads" value={kpis.etsyAdsExpense} formatValue={(v) => fmt(v, "$")} type="red" />
                     <DetailKpiCard title="Etsy Ads (TL)" value={kpis.etsyAdsExpenseTL} formatValue={(v) => fmt(v, "₺")} type="red" />
                 </div>
