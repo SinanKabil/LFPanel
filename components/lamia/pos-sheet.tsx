@@ -157,7 +157,7 @@ export function PosSheet({ open, onOpenChange, initialData }: { open: boolean, o
 
         const res = await createCommissionRate(val, newRateLabel)
         if (res.success && res.data) {
-            setRates(prev => [...prev, res.data!].sort((a, b) => a.rate - b.rate))
+            setRates(prev => [...prev, res.data!].sort((a, b) => b.rate - a.rate))
             setFormData(prev => ({ ...prev, commissionRateId: res.data!.id })) // auto-select
             setNewRateValue("")
             setNewRateLabel("")
@@ -170,7 +170,7 @@ export function PosSheet({ open, onOpenChange, initialData }: { open: boolean, o
 
         const res = await updateCommissionRate(id, val, editRateLabel)
         if (res.success) {
-            setRates(prev => prev.map(r => r.id === id ? { ...r, rate: val, label: editRateLabel } : r))
+            setRates(prev => prev.map(r => r.id === id ? { ...r, rate: val, label: editRateLabel } : r).sort((a, b) => b.rate - a.rate))
             setEditingRateId(null)
         }
     }

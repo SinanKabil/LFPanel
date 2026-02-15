@@ -1,6 +1,6 @@
 "use server"
 
-import { revalidatePath } from "next/cache"
+import { revalidatePath, revalidateTag } from "next/cache"
 import { prisma } from "@/lib/prisma"
 
 // --- EXPENSES ACTIONS ---
@@ -66,6 +66,8 @@ export async function createExpense(data: ExpenseFormData) {
             },
         })
         revalidatePath("/dashboard")
+        // @ts-expect-error - Next.js version mismatch
+        revalidateTag("analysis")
         return { success: true }
     } catch (error: any) {
         console.error("Create Expense Error:", error)
@@ -95,6 +97,8 @@ export async function updateExpense(id: string, data: ExpenseFormData) {
             },
         })
         revalidatePath("/dashboard")
+        // @ts-expect-error - Next.js version mismatch
+        revalidateTag("analysis")
         return { success: true }
     } catch (error) {
         return { success: false, error: "Failed to update expense" }
@@ -176,6 +180,8 @@ export async function deleteExpense(id: string) {
     try {
         await prisma.expense.delete({ where: { id } })
         revalidatePath("/dashboard")
+        // @ts-expect-error - Next.js version mismatch
+        revalidateTag("analysis")
         return { success: true }
     } catch (error) {
         return { success: false, error: "Failed to delete expense" }

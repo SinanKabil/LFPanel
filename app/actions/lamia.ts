@@ -58,7 +58,7 @@ export async function deleteLamiaStore(id: string) {
 export async function getCommissionRates() {
     try {
         const rates = await prisma.commissionRate.findMany({
-            orderBy: { rate: "asc" }
+            orderBy: { rate: "desc" }
         })
         return { success: true, data: rates }
     } catch (error) {

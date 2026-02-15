@@ -90,6 +90,11 @@ export async function getLamiaAnalysisData(filter: AnalysisFilter) {
 
         // --- Aggregation ---
 
+        //// Helper to shift UTC date to TRT (UTC+3) for display/grouping
+        const toTRT = (date: Date) => {
+            return new Date(date.getTime() + (3 * 60 * 60 * 1000))
+        }
+
         // A. KPI Totals
         const totalPosIncome = posTransactions.reduce((acc: number, curr: PosTransaction) => acc + (curr.net || 0), 0)
         const totalCashIncome = cashTransactions.reduce((acc: number, curr: CashTransaction) => acc + (curr.amount || 0), 0)
@@ -131,16 +136,19 @@ export async function getLamiaAnalysisData(filter: AnalysisFilter) {
         // D. Daily Trend (Line Chart)
         const days = eachDayOfInterval({ start: from, end: to })
         const dailyTrend = days.map((day: Date) => {
+            // Using toTRT for comparison is tricky with eachDayOfInterval (which iterates local/system time).
+            // Better to iterate days and check if (toTRT(transaction.date)) falls on that day.
+
             const incomeForDay =
                 posTransactions
-                    .filter((t: PosTransaction) => isSameDay(t.date, day))
+                    .filter((t: PosTransaction) => isSameDay(toTRT(t.date), day))
                     .reduce((acc: number, t: PosTransaction) => acc + (t.net || 0), 0) +
                 cashTransactions
-                    .filter((t: CashTransaction) => isSameDay(t.date, day))
+                    .filter((t: CashTransaction) => isSameDay(toTRT(t.date), day))
                     .reduce((acc: number, t: CashTransaction) => acc + (t.amount || 0), 0)
 
             const expenseForDay = expenses
-                .filter((e: Expense) => isSameDay(e.date, day))
+                .filter((e: Expense) => isSameDay(toTRT(e.date), day))
                 .reduce((acc: number, e: Expense) => acc + (e.amountTL || 0), 0)
 
             // Return null for 0 values to break the line in charts if requested
@@ -176,13 +184,13 @@ export async function getLamiaAnalysisData(filter: AnalysisFilter) {
 
             // Casting store to any because include type is not automatically inferred perfectly in arrays sometimes
             const name = ((storePos[0] as any)?.store?.name) || ((storeCash[0] as any)?.store?.name) || "Unknown"
+            // Active days count (using TRT dates)
+            const uniqueDays = new Set(allTx.map((t: { val: number; date: Date }) => format(toTRT(t.date), "yyyy-MM-dd"))).size
+
             const turnover = allTx.reduce((acc: number, t: { val: number; date: Date }) => acc + t.val, 0)
             const max = Math.max(...allTx.map((t: { val: number; date: Date }) => t.val))
             const min = Math.min(...allTx.map((t: { val: number; date: Date }) => t.val))
-            const avg = turnover / allTx.length
-
-            // Active days count
-            const uniqueDays = new Set(allTx.map((t: { val: number; date: Date }) => format(t.date, "yyyy-MM-dd"))).size
+            const avg = uniqueDays > 0 ? turnover / uniqueDays : 0
 
             storeSummary.push({
                 id: sId,
@@ -206,10 +214,10 @@ export async function getLamiaAnalysisData(filter: AnalysisFilter) {
             storeSummary.forEach((store: { id: string; name: string; turnover: number; avg: number; max: number; min: number; activeDays: number }) => {
                 const dailyStoreIncome =
                     posTransactions
-                        .filter((t: PosTransaction) => t.storeId === store.id && isSameDay(t.date, day))
+                        .filter((t: PosTransaction) => t.storeId === store.id && isSameDay(toTRT(t.date), day))
                         .reduce((acc: number, t: PosTransaction) => acc + (t.net || 0), 0) +
                     cashTransactions
-                        .filter((t: CashTransaction) => t.storeId === store.id && isSameDay(t.date, day))
+                        .filter((t: CashTransaction) => t.storeId === store.id && isSameDay(toTRT(t.date), day))
                         .reduce((acc: number, t: CashTransaction) => acc + (t.amount || 0), 0)
 
                 // Revert to showing 0
@@ -223,25 +231,25 @@ export async function getLamiaAnalysisData(filter: AnalysisFilter) {
         const monthlySummaryMap = new Map<string, { income: number, expense: number, date: Date }>()
 
         // Helper to get month key
-        const getMonthKey = (d: Date) => format(d, "MMMM yyyy", { locale: tr })
+        const getMonthKey = (d: Date) => format(toTRT(d), "MMMM yyyy", { locale: tr })
 
         // Populate Income
         posTransactions.forEach((t: PosTransaction) => {
             const key = getMonthKey(t.date)
-            const current = monthlySummaryMap.get(key) || { income: 0, expense: 0, date: startOfDay(t.date) } // Store date for sorting
+            const current = monthlySummaryMap.get(key) || { income: 0, expense: 0, date: startOfDay(toTRT(t.date)) } // Store date for sorting
             current.income += (t.net || 0)
             monthlySummaryMap.set(key, current)
         })
         cashTransactions.forEach((t: CashTransaction) => {
             const key = getMonthKey(t.date)
-            const current = monthlySummaryMap.get(key) || { income: 0, expense: 0, date: startOfDay(t.date) }
+            const current = monthlySummaryMap.get(key) || { income: 0, expense: 0, date: startOfDay(toTRT(t.date)) }
             current.income += (t.amount || 0)
             monthlySummaryMap.set(key, current)
         })
         // Populate Expense
         expenses.forEach((e: Expense) => {
             const key = getMonthKey(e.date)
-            const current = monthlySummaryMap.get(key) || { income: 0, expense: 0, date: startOfDay(e.date) }
+            const current = monthlySummaryMap.get(key) || { income: 0, expense: 0, date: startOfDay(toTRT(e.date)) }
             current.expense += (e.amountTL || 0)
             monthlySummaryMap.set(key, current)
         })
@@ -258,30 +266,20 @@ export async function getLamiaAnalysisData(filter: AnalysisFilter) {
 
         // H. Year Over Year Comparison (New)
         // We need to group previous year data by store as well
-        const prevStoreStats = new Map<string, { turnover: number, count: number }>()
+        // IMPORTANT: Previous year data also needs to be timezone adjusted if we were doing daily, but for total turnover it doesn't matter much.
+        // However, active days calculation DOES matter.
 
-        // Helper to aggregate prev stats
-        const addToPrevStats = (storeName: string, amount: number) => {
-            const current = prevStoreStats.get(storeName) || { turnover: 0, count: 0 }
+        const prevStoreMap = new Map<string, { turnover: number, dates: Set<string>, name: string }>()
+
+        const addToPrevMap = (storeId: string, storeName: string, amount: number, date: Date) => {
+            const current = prevStoreMap.get(storeId) || { turnover: 0, dates: new Set<string>(), name: storeName }
             current.turnover += amount
-            current.count += 1
-            prevStoreStats.set(storeName, current)
-        }
-
-        // Now merge with current storeSummary (which has current stats)
-        // We iterate over ALL stores found in EITHER period to be complete.
-
-        const prevStoreMap = new Map<string, { turnover: number, count: number, name: string }>()
-
-        const addToPrevMap = (storeId: string, storeName: string, amount: number) => {
-            const current = prevStoreMap.get(storeId) || { turnover: 0, count: 0, name: storeName }
-            current.turnover += amount
-            current.count += 1
+            current.dates.add(format(toTRT(date), "yyyy-MM-dd")) // Use TRT date
             prevStoreMap.set(storeId, current)
         }
 
-        prevPosTransactions.forEach((t: any) => addToPrevMap(t.storeId, t.store.name, t.net || 0))
-        prevCashTransactions.forEach((t: any) => addToPrevMap(t.storeId, t.store.name, t.amount || 0))
+        prevPosTransactions.forEach((t: any) => addToPrevMap(t.storeId, t.store.name, t.net || 0, t.date))
+        prevCashTransactions.forEach((t: any) => addToPrevMap(t.storeId, t.store.name, t.amount || 0, t.date))
 
         // Now merge with current storeSummary (which has current stats)
         // We iterate over ALL stores found in EITHER period to be complete.
@@ -299,7 +297,8 @@ export async function getLamiaAnalysisData(filter: AnalysisFilter) {
             const currentAvg = current ? current.avg : 0
 
             const prevTurnover = prev ? prev.turnover : 0
-            const prevAvg = prev ? (prev.turnover / prev.count) : 0
+            const prevActiveDays = prev ? prev.dates.size : 0
+            const prevAvg = prevActiveDays > 0 ? (prevTurnover / prevActiveDays) : 0
 
             yoyComparison.push({
                 id: sId,

@@ -188,7 +188,18 @@ function TableRows({ dates, groupedByDate, categories, handleEdit, handleDelete,
                         <TableCell key={cat.id} className="text-right text-sm text-slate-700 border-r border-slate-200 px-4 py-3 whitespace-nowrap">
                             {expense ? (
                                 <span title={expense.description || ""}>
-                                    {expense.amountTL?.toLocaleString('tr-TR', { style: 'currency', currency: 'TRY', maximumFractionDigits: 0 })}
+                                    <div className="flex flex-col items-end">
+                                        {expense.amountTL && (
+                                            <span className="whitespace-nowrap">
+                                                {expense.amountTL.toLocaleString('tr-TR', { style: 'currency', currency: 'TRY', maximumFractionDigits: 0 })}
+                                            </span>
+                                        )}
+                                        {expense.amountUSD && (
+                                            <span className="whitespace-nowrap text-slate-500 text-xs">
+                                                {expense.amountUSD.toLocaleString('en-US', { style: 'currency', currency: 'USD' })}
+                                            </span>
+                                        )}
+                                    </div>
                                 </span>
                             ) : "-"}
                         </TableCell>

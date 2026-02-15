@@ -1,6 +1,6 @@
 "use server"
 
-import { revalidatePath } from "next/cache"
+import { revalidatePath, revalidateTag } from "next/cache"
 import { prisma } from "@/lib/prisma"
 
 // --- SALES ACTIONS ---
@@ -78,7 +78,28 @@ function calculateProfit(data: SaleFormData) {
 
 export async function createSale(data: SaleFormData) {
     try {
-        const { profitUSD, profitTL } = calculateProfit(data)
+        // Check for existing Order No
+        if (data.orderNo) {
+            const existing = await prisma.sale.findFirst({
+                where: { orderNo: data.orderNo }
+            })
+            if (existing) {
+                return { success: false, error: "Bu Sipariş Numarası zaten kullanımda!" }
+            }
+        }
+
+        // Ensure numbers (handle empty strings or undefined)
+        const safeData = {
+            ...data,
+            buyerPaid: Number(data.buyerPaid) || 0,
+            feesCredits: Number(data.feesCredits) || 0,
+            tax: Number(data.tax) || 0,
+            productCost: Number(data.productCost) || 0,
+            shippingCost: Number(data.shippingCost) || 0,
+            totalSalePriceTL: Number(data.totalSalePriceTL) || 0,
+        }
+
+        const { profitUSD, profitTL } = calculateProfit(safeData)
 
         await prisma.sale.create({
             data: {
@@ -88,18 +109,20 @@ export async function createSale(data: SaleFormData) {
                 quantity: data.quantity,
                 date: data.date,
                 orderNo: data.orderNo,
-                buyerPaid: data.buyerPaid,
-                feesCredits: data.feesCredits,
-                tax: data.tax,
-                totalSalePriceTL: data.totalSalePriceTL,
-                productCost: data.productCost,
-                shippingCost: data.shippingCost,
+                buyerPaid: safeData.buyerPaid,
+                feesCredits: safeData.feesCredits,
+                tax: safeData.tax,
+                totalSalePriceTL: safeData.totalSalePriceTL,
+                productCost: safeData.productCost,
+                shippingCost: safeData.shippingCost,
                 profitUSD,
                 profitTL,
                 discountRate: data.discountRate,
             },
         })
         revalidatePath("/dashboard")
+        // @ts-expect-error - Next.js version mismatch
+        revalidateTag("analysis")
         return { success: true }
     } catch (error) {
         console.error("Create Sale Error:", error)
@@ -110,6 +133,19 @@ export async function createSale(data: SaleFormData) {
 export async function updateSale(id: string, data: SaleFormData) {
     try {
         console.log("Updating Sale:", id, data) // Log incoming data
+
+        // Check for existing Order No (excluding current sale)
+        if (data.orderNo) {
+            const existing = await prisma.sale.findFirst({
+                where: {
+                    orderNo: data.orderNo,
+                    NOT: { id }
+                }
+            })
+            if (existing) {
+                return { success: false, error: "Bu Sipariş Numarası zaten kullanımda!" }
+            }
+        }
 
         // Ensure numbers
         const safeData = {
@@ -146,6 +182,8 @@ export async function updateSale(id: string, data: SaleFormData) {
             },
         })
         revalidatePath("/dashboard")
+        // @ts-expect-error - Next.js version mismatch
+        revalidateTag("analysis")
         return { success: true }
     } catch (error) {
         console.error("Update Sale Error:", error)
@@ -158,6 +196,8 @@ export async function deleteSale(id: string) {
     try {
         await prisma.sale.delete({ where: { id } })
         revalidatePath("/dashboard")
+        // @ts-expect-error - Next.js version mismatch
+        revalidateTag("analysis")
         return { success: true }
     } catch (error) {
         return { success: false, error: "Failed to delete sale" }

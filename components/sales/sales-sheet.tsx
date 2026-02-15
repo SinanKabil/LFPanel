@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react"
 import { format } from "date-fns"
 import { tr } from "date-fns/locale"
-import { CalendarIcon, Save, Check, ChevronsUpDown } from "lucide-react"
+import { CalendarIcon, Save, Check, ChevronsUpDown, Plus } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -38,6 +38,7 @@ import {
 } from "@/components/ui/command"
 import { Calendar } from "@/components/ui/calendar"
 import { createSale, updateSale, SaleFormData } from "@/app/actions/sales"
+import { ProductManagerDialog } from "./product-manager-dialog"
 
 type Product = {
     id: string
@@ -91,6 +92,7 @@ export function SalesSheet({ open, onOpenChange, initialData, products }: SalesS
     const [loading, setLoading] = useState(false)
     const [isCalendarOpen, setIsCalendarOpen] = useState(false)
     const [isProductOpen, setIsProductOpen] = useState(false)
+    const [isManagerOpen, setIsManagerOpen] = useState(false)
 
     const [formData, setFormData] = useState<SaleFormValues>(defaultSettings)
 
@@ -141,13 +143,19 @@ export function SalesSheet({ open, onOpenChange, initialData, products }: SalesS
         e.preventDefault()
         setLoading(true)
         try {
+            let res;
             if (initialData?.id) {
-                await updateSale(initialData.id, formData as any)
+                res = await updateSale(initialData.id, formData as any)
             } else {
-                await createSale(formData as any)
+                res = await createSale(formData as any)
             }
-            onOpenChange(false)
-            window.location.reload()
+
+            if (res.success) {
+                onOpenChange(false)
+                window.location.reload()
+            } else {
+                alert(res.error || "İşlem başarısız oldu")
+            }
         } catch (error) {
             alert("İşlem başarısız oldu")
         } finally {
@@ -262,7 +270,21 @@ export function SalesSheet({ open, onOpenChange, initialData, products }: SalesS
                                         <Command>
                                             <CommandInput placeholder="Ürün ara..." />
                                             <CommandList>
-                                                <CommandEmpty>Ürün bulunamadı.</CommandEmpty>
+                                                <CommandEmpty>
+                                                    <div className="p-2 text-center text-sm text-slate-500">
+                                                        Ürün bulunamadı.
+                                                        <Button
+                                                            variant="link"
+                                                            className="h-auto p-0 text-orange-600 ml-1"
+                                                            onClick={() => {
+                                                                setIsProductOpen(false)
+                                                                setIsManagerOpen(true)
+                                                            }}
+                                                        >
+                                                            Yeni Ekle
+                                                        </Button>
+                                                    </div>
+                                                </CommandEmpty>
                                                 <CommandGroup>
                                                     {products.map((product) => (
                                                         <CommandItem
@@ -270,6 +292,10 @@ export function SalesSheet({ open, onOpenChange, initialData, products }: SalesS
                                                             value={product.name}
                                                             onSelect={(currentValue) => {
                                                                 handleInputChange("productId", product.id === formData.productId ? "" : product.id)
+                                                                // Auto-fill cost if available and not set
+                                                                if (product.costUSD && !formData.productCost) {
+                                                                    handleInputChange("productCost", product.costUSD)
+                                                                }
                                                                 setIsProductOpen(false)
                                                             }}
                                                         >
@@ -284,6 +310,19 @@ export function SalesSheet({ open, onOpenChange, initialData, products }: SalesS
                                                     ))}
                                                 </CommandGroup>
                                             </CommandList>
+                                            <div className="p-2 border-t border-slate-100 bg-slate-50">
+                                                <Button
+                                                    variant="ghost"
+                                                    size="sm"
+                                                    className="w-full justify-start text-slate-600"
+                                                    onClick={() => {
+                                                        setIsProductOpen(false)
+                                                        setIsManagerOpen(true)
+                                                    }}
+                                                >
+                                                    <Plus className="mr-2 h-4 w-4" /> Ürünleri Yönet
+                                                </Button>
+                                            </div>
                                         </Command>
                                     </PopoverContent>
                                 </Popover>
@@ -404,6 +443,12 @@ export function SalesSheet({ open, onOpenChange, initialData, products }: SalesS
                     </SheetFooter>
                 </div>
             </SheetContent>
+
+            <ProductManagerDialog
+                open={isManagerOpen}
+                onOpenChange={setIsManagerOpen}
+                products={products}
+            />
         </Sheet>
     )
 }

@@ -1,8 +1,9 @@
 "use client"
 
 import { useState } from "react"
-import { Plus, ShoppingBag } from "lucide-react"
+import { Plus, ShoppingBag, AlertCircle } from "lucide-react"
 import { Button } from "@/components/ui/button"
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import {
     Select,
     SelectContent,
@@ -15,14 +16,23 @@ import { SalesSheet, SaleFormValues } from "./sales-sheet"
 import { subDays, subMonths, subYears, isAfter, startOfYear } from "date-fns"
 
 export default function SalesView({ sales, products }: { sales: any[], products: any[] }) {
-    const [periodFilter, setPeriodFilter] = useState("week") // week, month, year, last_year, all
+    const [periodFilter, setPeriodFilter] = useState("month") // week, month, year, last_year, all
     const [storeFilter, setStoreFilter] = useState("all")
     const [productFilter, setProductFilter] = useState("all")
     const [isSheetOpen, setIsSheetOpen] = useState(false)
     const [editingSale, setEditingSale] = useState<SaleFormValues | null>(null)
+    const [showMissingOnly, setShowMissingOnly] = useState(false)
+
+    // Calculate missing costs count (always based on ALL sales to show correct warning)
+    const missingCostCount = sales.filter(s => s.productCost === 0 || s.shippingCost === 0).length
 
     // Client-side filtering
     const filteredSales = sales.filter(sale => {
+        // If showing missing only, ignore other filters
+        if (showMissingOnly) {
+            return (sale.productCost === 0 || sale.shippingCost === 0)
+        }
+
         const date = new Date(sale.date)
         const now = new Date()
 
@@ -79,6 +89,24 @@ export default function SalesView({ sales, products }: { sales: any[], products:
 
     return (
         <div className="space-y-6">
+            {missingCostCount > 0 && (
+                <Alert variant="destructive" className="flex items-center justify-between py-2 px-4 bg-red-50 border-red-200 text-red-900 icon-red-600">
+                    <div className="flex items-center gap-2">
+                        <AlertCircle className="h-4 w-4" />
+                        <span className="text-sm font-medium">
+                            Maliyet bilgisi eksik <strong>{missingCostCount}</strong> satış var.
+                        </span>
+                    </div>
+                    <Button
+                        variant="outline"
+                        size="sm"
+                        className="h-7 text-xs bg-white border-red-200 text-red-700 hover:bg-red-100 hover:text-red-900"
+                        onClick={() => setShowMissingOnly(!showMissingOnly)}
+                    >
+                        {showMissingOnly ? "Tümünü Göster" : "Listele"}
+                    </Button>
+                </Alert>
+            )}
             <div className="flex flex-col xl:flex-row justify-between items-start xl:items-center gap-4">
                 <div>
                     <h2 className="text-3xl font-bold tracking-tight text-slate-900 mb-1 flex items-center gap-2">
