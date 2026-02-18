@@ -195,7 +195,7 @@ export default function AnalysisView({ data: initialData }: AnalysisViewProps) {
                     <CreditCard className="h-3.5 w-3.5" />
                     HARİCİ GİDERLER
                 </h3>
-                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
+                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-7 gap-4">
                     <DetailKpiCard title="ShipEntegra ($)" value={kpis.shipEntegraExpense} formatValue={(v) => fmt(v, "$")} type="red" />
                     <DetailKpiCard title="ShipEntegra (TL)" value={kpis.shipEntegraExpenseTL} formatValue={(v) => fmt(v, "₺")} type="red" />
 
@@ -204,6 +204,8 @@ export default function AnalysisView({ data: initialData }: AnalysisViewProps) {
 
                     <DetailKpiCard title="Rexven ($)" value={kpis.rexvenExpense} formatValue={(v) => fmt(v, "$")} type="red" />
                     <DetailKpiCard title="Rexven (TL)" value={kpis.rexvenExpenseTL} formatValue={(v) => fmt(v, "₺")} type="red" />
+
+                    <DetailKpiCard title="CloudFix (TL)" value={kpis.cloudFixExpenseTL} formatValue={(v) => fmt(v, "₺")} type="red" />
                 </div>
             </div>
 

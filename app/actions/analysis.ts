@@ -28,6 +28,8 @@ export interface AnalysisData {
         etsyAdsExpenseTL: number
         listingFeesExpense: number // New
         etsyPlusExpense: number // New
+        cloudFixExpense: number // New
+        cloudFixExpenseTL: number // New
     }
     // For Trend Chart (Revenue, Profit, Expense over time)
     trendStats: {
@@ -162,6 +164,7 @@ async function getAnalysisLogic(brand: string, store?: string, dateRange?: DateR
     const rexven = calcExpense("Rexven")
     const etsyPlus = calcExpense("Etsy Plus")
     const listingFees = calcExpense("Listing Fee")
+    const cloudFix = calcExpense("CloudFix")
 
     // Calculate Etsy Ads Expenses
     const etsyAdsExpenses = expenses.filter(e => checkCategory(e.category, "Etsy Ads"))
@@ -174,8 +177,8 @@ async function getAnalysisLogic(brand: string, store?: string, dateRange?: DateR
     }
 
     // Update Total Cost formula
-    // Product Cost + Shipping Cost + Fees + Etsy Ads + Etsy Plus + Listing Fees
-    const totalCost = totalProductCost + totalShippingCost + totalFeesUSD + etsyAdsStats.usd + etsyPlus.usd + listingFees.usd
+    // Product Cost + Shipping Cost + Fees + Etsy Ads + Etsy Plus + Listing Fees + CloudFix
+    const totalCost = totalProductCost + totalShippingCost + totalFeesUSD + etsyAdsStats.usd + etsyPlus.usd + listingFees.usd + cloudFix.usd
 
     // Update Total Profit TL = Sales Profit TL - Etsy Ads TL
     const totalProfitTL = salesProfitTL - etsyAdsStats.tl
@@ -201,7 +204,9 @@ async function getAnalysisLogic(brand: string, store?: string, dateRange?: DateR
         etsyAdsExpense: etsyAdsStats.usd,
         etsyAdsExpenseTL: etsyAdsStats.tl,
         listingFeesExpense: listingFees.usd,
-        etsyPlusExpense: etsyPlus.usd
+        etsyPlusExpense: etsyPlus.usd,
+        cloudFixExpense: cloudFix.usd, // New
+        cloudFixExpenseTL: cloudFix.tl // New
     }
 
 
